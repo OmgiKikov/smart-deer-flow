@@ -10,7 +10,8 @@ from langchain_community.tools import BraveSearch, DuckDuckGoSearchResults
 from langchain_community.tools.arxiv import ArxivQueryRun
 from langchain_community.utilities import ArxivAPIWrapper, BraveSearchWrapper
 from langchain_core.tools import BaseTool
-from pydantic import Field
+from pydantic import BaseModel, Field
+from typing import Type
 
 from src.config.config_loader import get_settings
 from src.config.models import SearchEngine
@@ -28,11 +29,18 @@ LoggedBraveSearch = create_logged_tool(BraveSearch)
 LoggedArxivSearch = create_logged_tool(ArxivQueryRun)
 
 
+class SmartSearchInput(BaseModel):
+    """Input schema for SmartSearchTool."""
+    
+    query: str = Field(description="Search query to look up")
+
+
 class SmartSearchTool(BaseTool):
     """Smart search tool wrapper that applies SearchResultFilter to search results."""
 
     name: str = "web_search"
-    description: str = "Search the web for information with intelligent filtering"
+    description: str = "Search the web for information with intelligent filtering. Input should be a search query."
+    args_schema: Type[BaseModel] = SmartSearchInput
     base_tool: BaseTool = Field(..., description="The underlying search tool")
     enable_smart_filtering: bool = Field(
         default=True, description="Whether to enable smart filtering"

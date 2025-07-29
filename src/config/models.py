@@ -43,6 +43,7 @@ class LLMModelConfig(BaseModel):
     max_tokens: Optional[int] = None
     timeout: int = Field(default=30, ge=1)
     verify_ssl: bool = True
+    scope: Optional[str] = Field(default=None, description="GigaChat API scope (e.g., GIGACHAT_API_PERS)")
 
 
 class LLMSettings(BaseModel):

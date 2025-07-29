@@ -25,6 +25,9 @@ def create_agent(
 
     # Get LLM type for the agent from configuration
     llm_type = getattr(agent_llm_config, agent_type, "basic")
+    
+    # Get the LLM instance
+    llm = get_llm_by_type(llm_type)
 
     def prompt_func(state):
         # Try to get configurable from state if not provided
@@ -33,12 +36,17 @@ def create_agent(
             current_configurable = state.configurable
         return apply_prompt_template(prompt_template, state, current_configurable)
 
-    return create_react_agent(
-        name=agent_name,
-        model=get_llm_by_type(llm_type),
-        tools=tools,
-        prompt=prompt_func,
-    )
+    # Check if this is GigaChat and use wrapper if needed
+    if hasattr(llm, '__class__') and 'GigaChat' in llm.__class__.__name__:
+        from src.llms.gigachat_wrapper import create_gigachat_agent
+        return create_gigachat_agent(llm, tools, agent_name, prompt_func)
+    else:    
+        return create_react_agent(
+            name=agent_name,
+            model=llm,
+            tools=tools,
+            prompt=prompt_func,
+        )
 
 
 def create_agent_with_managed_prompt(
@@ -91,12 +99,20 @@ def create_agent_with_managed_prompt(
                 current_configurable = state.configurable
             return apply_prompt_template(prompt_name, state, current_configurable)
 
-    return create_react_agent(
-        name=agent_name,
-        model=get_llm_by_type(llm_type),
-        tools=tools,
-        prompt=get_prompt_content,
-    )
+    # Get the LLM instance
+    llm = get_llm_by_type(llm_type)
+    
+    # Check if this is GigaChat and use wrapper if needed
+    if hasattr(llm, '__class__') and 'GigaChat' in llm.__class__.__name__:
+        from src.llms.gigachat_wrapper import create_gigachat_agent
+        return create_gigachat_agent(llm, tools, agent_name, get_prompt_content)
+    else:
+        return create_react_agent(
+            name=agent_name,
+            model=llm,
+            tools=tools,
+            prompt=get_prompt_content,
+        )
 
 
 def apply_prompt_template_content(

@@ -539,12 +539,7 @@ REFLECTION INSIGHTS FROM PREVIOUS RESEARCH:
             )
 
             if content_within_limit:
-                messages += [
-                    {
-                        "role": "user",
-                        "content": background_content,
-                    }
-                ]
+                messages += [HumanMessage(content=background_content)]
                 logger.info(
                     f"Added background investigation results to planner context "
                     f"({token_result.total_tokens} tokens, within limit)"
@@ -566,14 +561,13 @@ REFLECTION INSIGHTS FROM PREVIOUS RESEARCH:
                 )
 
                 messages += [
-                    {
-                        "role": "user",
-                        "content": (
+                    HumanMessage(
+                        content=(
                             "background investigation results of user query (summarized):\n"
                             + summarized_background
                             + "\n"
-                        ),
-                    }
+                        )
+                    )
                 ]
                 logger.info(
                     "Added summarized background investigation results to planner context"
@@ -585,10 +579,7 @@ REFLECTION INSIGHTS FROM PREVIOUS RESEARCH:
             )
             # Fallback to original behavior
             messages += [
-                {
-                    "role": "user",
-                    "content": background_content,
-                }
+                HumanMessage(content=background_content)
             ]
 
     # Configure LLM based on settings
@@ -1981,7 +1972,7 @@ async def researcher_node_with_isolation(
                         # Create a new research task for the follow-up query
                         follow_up_state = {
                             **state,
-                            "messages": [{"role": "user", "content": query_str}],
+                            "messages": [HumanMessage(content=query_str)],
                             "research_topic": query_str,
                             "is_follow_up_query": True,
                             "parent_iteration": current_iteration,

@@ -10,12 +10,20 @@ from langchain_openai import ChatOpenAI
 from langchain_deepseek import ChatDeepSeek
 from typing import get_args
 
+# Import langchain_gigachat if available
+try:
+    from langchain_gigachat import GigaChat as ChatGigaChat
+    GIGACHAT_AVAILABLE = True
+except ImportError:
+    GIGACHAT_AVAILABLE = False
+    ChatGigaChat = None
+
 from src.config import get_settings
 from src.config.agents import LLMType
 from src.utils.tokens.content_processor import ModelTokenLimits
 
 # Cache for LLM instances
-_llm_cache: dict[LLMType, ChatOpenAI] = {}
+_llm_cache: dict[LLMType, ChatOpenAI | ChatDeepSeek | ChatGigaChat] = {}
 
 # Global registry for model token limits
 _model_token_limits_registry: dict[str, ModelTokenLimits] = {}
@@ -63,7 +71,7 @@ def _get_env_llm_conf(llm_type: str) -> Dict[str, Any]:
     return conf
 
 
-def _create_llm_use_conf(llm_type: LLMType, conf: Any) -> ChatOpenAI | ChatDeepSeek:
+def _create_llm_use_conf(llm_type: LLMType, conf: Any, disable_tools: bool = False) -> ChatOpenAI | ChatDeepSeek | ChatGigaChat:
     """Create LLM instance using new configuration system."""
     from src.config.config_loader import load_configuration
 
@@ -91,14 +99,24 @@ def _create_llm_use_conf(llm_type: LLMType, conf: Any) -> ChatOpenAI | ChatDeepS
     # Merge configurations, with environment variables taking precedence
     merged_conf = {**llm_config, **env_conf}
 
-    if llm_type == "reasoning":
+    # Check if this is a GigaChat model
+    model_name = merged_conf.get("model", "")
+    is_gigachat = "gigachat" in model_name.lower()
+
+    if is_gigachat and not GIGACHAT_AVAILABLE:
+        raise ImportError(
+            "GigaChat model requested but langchain-gigachat is not installed. "
+            "Please install it with: pip install langchain-gigachat"
+        )
+
+    # Handle provider-specific configurations
+    if llm_type == "reasoning" and not is_gigachat:
         merged_conf["api_base"] = merged_conf.pop("base_url", None)
 
     # Handle SSL verification settings
     verify_ssl = merged_conf.pop("verify_ssl", True)
 
     # Store model token limits from new configuration system
-    model_name = merged_conf.get("model")
     if model_name and model_name in settings.model_token_limits:
         model_limits = settings.model_token_limits[model_name]
         _store_model_token_limits(
@@ -111,22 +129,49 @@ def _create_llm_use_conf(llm_type: LLMType, conf: Any) -> ChatOpenAI | ChatDeepS
             },
         )
 
-    # Create custom HTTP client if SSL verification is disabled
+    # Configure GigaChat-specific parameters
+    if is_gigachat:
+        # GigaChat uses 'credentials' instead of 'api_key'
+        if "api_key" in merged_conf:
+            merged_conf["credentials"] = merged_conf.pop("api_key")
+        
+        # GigaChat uses 'scope' for API access level
+        merged_conf["scope"] = merged_conf.pop("scope", "GIGACHAT_API_PERS")
+        
+        # Remove base_url as GigaChat doesn't use it
+        merged_conf.pop("base_url", None)
+        
+        # Rename 'model' for GigaChat compatibility
+        if "model" in merged_conf:
+            merged_conf["model"] = merged_conf.pop("model")
+        
+        # GigaChat-specific SSL verification
+        merged_conf["verify_ssl_certs"] = verify_ssl
+        
+        # Note: GigaChat doesn't support custom HTTP clients directly
+        # SSL verification is handled by verify_ssl_certs parameter
+        
+        # Remove parameters not used by GigaChat
+        merged_conf.pop("model_name", None)
+        
+        return ChatGigaChat(**merged_conf)
+
+    # Create custom HTTP client if SSL verification is disabled (for non-GigaChat models)
     if not verify_ssl:
         http_client = httpx.Client(verify=False)
         http_async_client = httpx.AsyncClient(verify=False)
         merged_conf["http_client"] = http_client
         merged_conf["http_async_client"] = http_async_client
 
-    # Rename 'model' to 'model_name' for LangChain compatibility
+    # Rename 'model' to 'model_name' for LangChain compatibility (non-GigaChat)
     if "model" in merged_conf:
         merged_conf["model_name"] = merged_conf.pop("model")
 
-    return (
-        ChatOpenAI(**merged_conf)
-        if llm_type != "reasoning"
-        else ChatDeepSeek(**merged_conf)
-    )
+    # Return appropriate model instance
+    if llm_type == "reasoning" and not is_gigachat:
+        return ChatDeepSeek(**merged_conf)
+    else:
+        return ChatOpenAI(**merged_conf)
 
 
 def get_llm_by_type(
