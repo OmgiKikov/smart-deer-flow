@@ -20,7 +20,13 @@ def script_writer_node(state: PodcastState):
     logger.info("Generating script for podcast...")
     settings = get_settings()
     llm_type = getattr(settings.agent_llm_map, "podcast_script_writer", "basic")
-    model = get_llm_by_type(llm_type).with_structured_output(Script, method="json_mode")
+    model = get_llm_by_type(llm_type)
+    
+    # Check if this is GigaChat and use appropriate method
+    if hasattr(model, '__class__') and 'GigaChat' in model.__class__.__name__:
+        model = model.with_structured_output(Script, method="format_instructions")
+    else:
+        model = model.with_structured_output(Script, method="json_mode")
     script = safe_llm_call(
         model.invoke,
         [

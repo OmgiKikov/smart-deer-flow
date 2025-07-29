@@ -331,9 +331,15 @@ class EnhancedReflectionAgent:
 
             # Use project's standard approach: structured_output with safe_llm_call_async
             # Use json_mode method for better compatibility with DeepSeek and other models
-            structured_model = model.with_structured_output(
-                ReflectionResult, method="json_mode"
-            )
+            # Check if this is GigaChat and use appropriate method
+            if hasattr(model, '__class__') and 'GigaChat' in model.__class__.__name__:
+                structured_model = model.with_structured_output(
+                    ReflectionResult, method="format_instructions"
+                )
+            else:
+                structured_model = model.with_structured_output(
+                    ReflectionResult, method="json_mode"
+                )
 
             # Create messages for the model
             messages = [HumanMessage(content=reflection_prompt)]

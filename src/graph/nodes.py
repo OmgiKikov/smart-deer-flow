@@ -604,6 +604,10 @@ REFLECTION INSIGHTS FROM PREVIOUS RESEARCH:
         )
     else:
         llm = get_llm_by_type(planner_llm_type)
+        # Check if this is GigaChat and use structured output
+        if hasattr(llm, '__class__') and 'GigaChat' in llm.__class__.__name__:
+            logger.info("Using GigaChat with structured output for planner")
+            llm = llm.with_structured_output(Plan, method="format_instructions")
 
     # if the plan iterations is greater than the max plan iterations, return the reporter node
     if plan_iterations >= configurable.agents.max_plan_iterations:
@@ -612,7 +616,10 @@ REFLECTION INSIGHTS FROM PREVIOUS RESEARCH:
     # Context evaluation will be handled automatically by safe_llm_call
 
     full_response = ""
-    if use_structured_output:
+    plan_object = None
+    is_gigachat_structured = hasattr(llm, '__class__') and 'GigaChat' in llm.__class__.__name__ and hasattr(llm, '_with_structured_output')
+    
+    if use_structured_output or is_gigachat_structured:
         response = safe_llm_call(
             llm.invoke,
             messages,
@@ -621,6 +628,7 @@ REFLECTION INSIGHTS FROM PREVIOUS RESEARCH:
         )
         if hasattr(response, "model_dump_json"):
             full_response = response.model_dump_json(indent=4, exclude_none=True)
+            plan_object = response  # Store the Plan object for later use
         else:
             # if the response is not a structured output, return the default plan
             full_response = '{"steps": [{"title": "Research Task", "description": "Continue with general research due to content limitations."}]}'
@@ -649,28 +657,37 @@ REFLECTION INSIGHTS FROM PREVIOUS RESEARCH:
     logger.debug(f"Current state messages: {state['messages']}")
     logger.info(f"Planner response: {full_response}")
 
-    try:
-        curr_plan = json.loads(repair_json_output(full_response))
-    except json.JSONDecodeError as e:
-        logger.warning(f"Planner response is not a valid JSON: {e}")
-        logger.warning(f"Full traceback: {traceback.format_exc()}")
-        if plan_iterations > 0:
-            return Command(goto="reporter")
-        else:
-            return Command(goto="__end__")
-    if curr_plan.get("has_enough_context"):
-        logger.info("Planner response has enough context.")
+    # If we already have a plan object from structured output, use it directly
+    if plan_object:
+        curr_plan = plan_object.model_dump()
+    else:
         try:
-            new_plan = Plan.model_validate(curr_plan)
-        except Exception as e:
-            logger.warning(
-                f"Planner execution error: Failed to parse Plan from completion {curr_plan}. Got: {e}"
-            )
+            curr_plan = json.loads(repair_json_output(full_response))
+        except json.JSONDecodeError as e:
+            logger.warning(f"Planner response is not a valid JSON: {e}")
             logger.warning(f"Full traceback: {traceback.format_exc()}")
             if plan_iterations > 0:
                 return Command(goto="reporter")
             else:
                 return Command(goto="__end__")
+    
+    if curr_plan.get("has_enough_context"):
+        logger.info("Planner response has enough context.")
+        # If we already have a validated plan object, use it directly
+        if plan_object and isinstance(plan_object, Plan):
+            new_plan = plan_object
+        else:
+            try:
+                new_plan = Plan.model_validate(curr_plan)
+            except Exception as e:
+                logger.warning(
+                    f"Planner execution error: Failed to parse Plan from completion {curr_plan}. Got: {e}"
+                )
+                logger.warning(f"Full traceback: {traceback.format_exc()}")
+                if plan_iterations > 0:
+                    return Command(goto="reporter")
+                else:
+                    return Command(goto="__end__")
         # Phase 5: Add reflection metadata to command result
         reflection_metadata = {
             "reflection_applied": (
