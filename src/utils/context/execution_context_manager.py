@@ -469,10 +469,15 @@ class ExecutionContextManager:
         compressed = []
 
         for obs in observations:
-            target_length = int(len(obs) * compression_ratio)
+            if isinstance(obs, dict):
+                content = obs.get("content", str(obs))
+            else:
+                content = str(obs)
 
-            if len(obs) <= target_length:
-                compressed.append(obs)
+            target_length = int(len(content) * compression_ratio)
+
+            if len(content) <= target_length:
+                compressed.append(content)
             else:
                 # 保留开头和结尾，中间压缩
                 keep_start = target_length // 2
@@ -480,10 +485,12 @@ class ExecutionContextManager:
 
                 if keep_end > 0:
                     compressed_obs = (
-                        obs[:keep_start] + "\n[...内容已压缩...]\n" + obs[-keep_end:]
+                        content[:keep_start]
+                        + "\n[...内容已压缩...]\n"
+                        + content[-keep_end:]
                     )
                 else:
-                    compressed_obs = obs[:target_length] + "..."
+                    compressed_obs = content[:target_length] + "..."
 
                 compressed.append(compressed_obs)
 

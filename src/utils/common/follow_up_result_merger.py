@@ -1,10 +1,10 @@
-"""Follow-up查询结果合并机制
+"""Механизм слияния результатов для follow-up запросов
 
-这个模块提供了智能的Follow-up查询结果合并功能，包括：
-- 内容去重和相似性检测
-- 智能结果优先级排序
-- 结构化数据合并
-- 质量评估和过滤
+Этот модуль предоставляет интеллектуальные функции для слияния результатов follow-up запросов, включая:
+- Дедупликацию контента и определение схожести
+- Умную приоритизацию результатов
+- Слияние структурированных данных
+- Оценку и фильтрацию по качеству
 """
 
 import logging
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class MergedResult:
-    """合并后的结果数据结构"""
+    """Структура данных для объединенного результата"""
 
     content: str
     sources: List[str]
@@ -32,7 +32,7 @@ class MergedResult:
 
 @dataclass
 class ResultMetrics:
-    """结果质量指标"""
+    """Метрики качества результата"""
 
     content_length: int
     unique_information_ratio: float
@@ -122,27 +122,32 @@ class FollowUpResultMerger:
         Returns:
             合并后的结果列表
         """
-        logger.info(f"开始合并 {len(follow_up_results)} 个Follow-up结果")
-
-        # 更新统计信息
-        self._stats["total_merges"] += 1
-
-        # 1. 预处理和标准化
-        normalized_results = self._normalize_results(follow_up_results)
-
-        # 2. 内容去重
-        deduplicated_results = self._deduplicate_content(normalized_results)
-
-        # 3. 与原始发现去重
-        filtered_results = self._filter_against_original(
-            deduplicated_results, original_findings
+        logger.info(
+            f"Начинаю слияние {len(follow_up_results)} новых и {len(original_findings)} существующих результатов"
         )
 
-        # 4. 语义分组（如果启用）
+        # Обновление статистики
+        self._stats["total_merges"] += 1
+
+        # 1. Нормализация всех входных данных
+        normalized_follow_ups = self._normalize_results(follow_up_results)
+        normalized_originals = self._normalize_results(
+            [{"content": f, "source": "original"} for f in original_findings]
+        )
+        
+        all_normalized_results = normalized_originals + normalized_follow_ups
+
+        # 2. Однократная дедупликация всех результатов
+        deduplicated_results = self._deduplicate_content(all_normalized_results)
+        logger.info(
+            f"После слияния и дедупликации {len(deduplicated_results)}/{len(all_normalized_results)} уникальных результатов"
+        )
+        
+        # 3. Семантическая группировка (если включена)
         if self.config.enable_semantic_grouping:
-            grouped_results = self._group_by_semantic_similarity(filtered_results)
+            grouped_results = self._group_by_semantic_similarity(deduplicated_results)
         else:
-            grouped_results = [[result] for result in filtered_results]
+            grouped_results = [[result] for result in deduplicated_results]
 
         # 5. 组内合并
         merged_groups = []
@@ -157,10 +162,17 @@ class FollowUpResultMerger:
         # 7. 最终过滤和限制数量
         final_results = self._apply_final_filters(scored_results)
 
+        # 提取合并后的内容和观察结果
+        merged_findings = [res.content for res in final_results]
+        merged_observations = [
+            {"content": res.content, "source": res.sources} for res in final_results
+        ]
+        merge_stats = self.get_merge_statistics(final_results)
+
         logger.info(
             f"合并完成，从 {len(follow_up_results)} 个结果合并为 {len(final_results)} 个"
         )
-        return final_results
+        return merged_findings, merged_observations, merge_stats
 
     def _normalize_results(self, results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """标准化结果格式"""
@@ -316,7 +328,7 @@ class FollowUpResultMerger:
             # 检查是否与原始发现重复
             is_duplicate = content_fingerprint in original_fingerprints
 
-            # 检查相似度
+            
             if not is_duplicate:
                 max_similarity = 0.0
                 for finding in original_findings:
@@ -325,8 +337,9 @@ class FollowUpResultMerger:
                             result["content"], finding
                         )
                         max_similarity = max(max_similarity, similarity)
-
-                is_duplicate = max_similarity > self.config.similarity_threshold
+                
+                if max_similarity > self.config.similarity_threshold:
+                    is_duplicate = True
 
             if not is_duplicate:
                 filtered.append(result)
