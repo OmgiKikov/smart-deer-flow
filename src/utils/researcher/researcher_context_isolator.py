@@ -248,11 +248,11 @@ class ResearcherContextIsolator:
             Enhanced context information
         """
         researcher_guidance = (
-            "\n\n## Research Guidelines\n\n"
-            "- Focus on the current research task without being influenced by previous unrelated research\n"
-            "- Prioritize accuracy and relevance over comprehensiveness\n"
-            "- Use appropriate tools for information gathering and verification\n"
-            "- Maintain clear source attribution in your research findings"
+            "\n\n## Правила исследования\n\n"
+            "- Сосредоточьтесь на текущей исследовательской задаче, не отвлекаясь на предыдущие, не связанные с ней исследования\n"
+            "- Отдавайте предпочтение точности и релевантности, а не полноте\n"
+            "- Используйте соответствующие инструменты для сбора и проверки информации\n"
+            "- Сохраняйте четкую атрибуцию источников в своих результатах исследования"
         )
 
         return context_info + researcher_guidance

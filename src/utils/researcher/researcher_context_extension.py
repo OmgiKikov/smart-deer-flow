@@ -427,7 +427,7 @@ class ResearcherContextExtension:
         # Add citation guidance
         agent_input["messages"].append(
             HumanMessage(
-                content="IMPORTANT: DO NOT include inline citations in the text. Instead, track all sources and include a References section at the end using link reference format. Include an empty line between each citation for better readability. Use this format for each reference:\n- [Source Title](URL)\n\n- [Another Source](URL)",
+                content="ВАЖНО: НЕ включайте цитаты непосредственно в текст. Вместо этого отслеживайте все источники и добавьте в конце раздел «Список литературы» в формате ссылок. Для лучшей читаемости оставляйте пустую строку между каждой цитатой. Используйте следующий формат для каждой ссылки:\n- [Название источника](URL)\n\n- [Другой источник](URL)",
                 name="system",
             )
         )

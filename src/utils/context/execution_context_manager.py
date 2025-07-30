@@ -1,7 +1,7 @@
-"""统一的执行上下文管理器
+"""Единый менеджер контекста выполнения
 
-这个模块提供了统一的上下文处理逻辑，用于串行和并行执行路径。
-解决了之前存在的上下文累积和不一致性问题。
+Этот модуль предоставляет единую логику обработки контекста для последовательных и параллельных путей выполнения.
+Решает проблемы накопления контекста и несогласованности.
 """
 
 import logging
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ContextConfig:
-    """上下文处理配置"""
+    """Конфигурация обработки контекста"""
 
     max_context_steps: int = 3
     max_step_content_length: int = 2000
@@ -29,7 +29,7 @@ class ContextConfig:
 
 
 class TokenAllocation(NamedTuple):
-    """Token分配结果"""
+    """Результат распределения токенов"""
 
     allocated_tokens: int
     task_id: str
@@ -38,21 +38,21 @@ class TokenAllocation(NamedTuple):
 
 
 class ExecutionContextManager:
-    """统一的执行上下文管理器
+    """Единый менеджер контекста выполнения
 
-    提供串行和并行执行的统一上下文处理逻辑，包括：
-    - 智能的步骤历史管理
-    - 观察结果的压缩和去重
-    - Token预算的动态管理
-    - 消息历史的优化
-    - 规划上下文优化
-    - 高级观察结果管理
+    Предоставляет единую логику обработки контекста для последовательного и параллельного выполнения, включая:
+    - Интеллектуальное управление историей шагов
+    - Сжатие и дедупликация результатов наблюдений
+    - Динамическое управление бюджетом токенов
+    - Оптимизация истории сообщений
+    - Оптимизация контекста планирования
+    - Расширенное управление результатами наблюдений
     """
 
     def __init__(self, config: Optional[ContextConfig] = None):
         self.config = config or ContextConfig()
-        self._task_allocations = {}  # 跟踪任务的token分配
-        self._observation_cache = {}  # 观察结果缓存
+        self._task_allocations = {}  # Отслеживание распределения токенов задач
+        self._observation_cache = {}  # Кэш результатов наблюдений
 
     def prepare_context_for_execution(
         self,
@@ -60,27 +60,27 @@ class ExecutionContextManager:
         current_step: Dict[str, Any],
         agent_type: str = "researcher",
     ) -> Tuple[List[Dict[str, Any]], str]:
-        """为代理执行准备优化的上下文
+        """Подготовка оптимизированного контекста для выполнения агентом
 
         Args:
-            completed_steps: 已完成的步骤列表
-            current_step: 当前步骤
-            agent_type: 代理类型
+            completed_steps: Список завершенных шагов
+            current_step: Текущий шаг
+            agent_type: Тип агента
 
         Returns:
-            优化后的步骤列表和格式化的上下文信息
+            Оптимизированный список шагов и отформатированная информация о контексте
         """
-        # 1. 应用步骤数量限制
+        # 1. Применение ограничения на количество шагов
         limited_steps = self._limit_context_steps(completed_steps)
 
-        # 2. 内容去重和截断
+        # 2. Дедупликация и усечение содержимого
         if self.config.enable_content_deduplication:
             limited_steps = self._deduplicate_step_content(limited_steps)
 
         if self.config.enable_smart_truncation:
             limited_steps = self._truncate_step_content(limited_steps)
 
-        # 3. 格式化上下文信息
+        # 3. Форматирование информации о контексте
         context_info = self._format_context_info(limited_steps, current_step)
 
         logger.info(
@@ -93,22 +93,22 @@ class ExecutionContextManager:
     def manage_observations(
         self, observations: List[str], new_observation: str
     ) -> List[str]:
-        """管理观察结果列表，防止无限累积
+        """Управление списком наблюдений, предотвращение бесконечного накопления
 
         Args:
-            observations: 现有观察结果列表
-            new_observation: 新的观察结果
+            observations: Существующий список наблюдений
+            new_observation: Новое наблюдение
 
         Returns:
-            优化后的观察结果列表
+            Оптимизированный список наблюдений
         """
-        # 添加新观察
+        # Добавить новое наблюдение
         updated_observations = observations + [new_observation]
 
-        # 计算总长度
+        # Рассчитать общую длину
         total_length = sum(len(obs) for obs in updated_observations)
 
-        # 如果超过限制，进行压缩
+        # Если лимит превышен, выполнить сжатие
         if total_length > self.config.max_observations_length:
             updated_observations = self._compress_observations(updated_observations)
 
@@ -117,55 +117,55 @@ class ExecutionContextManager:
     def optimize_messages(
         self, messages: List[BaseMessage], token_limit: Optional[int] = None
     ) -> List[BaseMessage]:
-        """优化消息历史，防止token超限
+        """Оптимизация истории сообщений для предотвращения превышения лимита токенов
 
         Args:
-            messages: 消息列表
-            token_limit: Token限制
+            messages: Список сообщений
+            token_limit: Лимит токенов
 
         Returns:
-            优化后的消息列表
+            Оптимизированный список сообщений
         """
         if not token_limit:
             return messages
 
-        # 计算当前token使用量
+        # Рассчитать текущее использование токенов
         current_tokens = sum(count_tokens(msg.content).total_tokens for msg in messages)
 
         if current_tokens <= token_limit:
             return messages
 
-        # 使用内部的截断策略
+        # Использовать внутреннюю стратегию усечения
         return self._simple_message_truncation(messages, token_limit)
 
     def _limit_context_steps(self, steps: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """限制上下文步骤数量"""
+        """Ограничение количества шагов в контексте"""
         if len(steps) <= self.config.max_context_steps:
             return steps
 
-        # 保留最近的步骤
+        # Сохранить последние шаги
         return steps[-self.config.max_context_steps :]
 
     def _deduplicate_step_content(
         self, steps: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
-        """去除步骤内容中的重复信息"""
+        """Удаление дублирующейся информации из содержимого шагов"""
         seen_content = set()
         deduplicated_steps = []
 
         for step in steps:
             execution_res = step.get("execution_res", "")
 
-            # 简单的内容指纹
-            content_hash = hash(execution_res[:200])  # 使用前200字符作为指纹
+            # Простой отпечаток содержимого
+            content_hash = hash(execution_res[:200])  # Использовать первые 200 символов в качестве отпечатка
 
             if content_hash not in seen_content:
                 seen_content.add(content_hash)
                 deduplicated_steps.append(step)
             else:
-                # 保留步骤结构但标记为重复
+                # Сохранить структуру шага, но пометить как дубликат
                 modified_step = step.copy()
-                modified_step["execution_res"] = "[重复内容已省略]"
+                modified_step["execution_res"] = "[Дублирующееся содержимое опущено]"
                 deduplicated_steps.append(modified_step)
 
         return deduplicated_steps
@@ -173,18 +173,18 @@ class ExecutionContextManager:
     def _truncate_step_content(
         self, steps: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
-        """智能截断步骤内容"""
+        """Интеллектуальное усечение содержимого шагов"""
         truncated_steps = []
 
         for step in steps:
             execution_res = step.get("execution_res", "")
 
             if len(execution_res) > self.config.max_step_content_length:
-                # 保留开头和结尾，中间用省略号
+                # Сохранить начало и конец, в середине многоточие
                 keep_length = self.config.max_step_content_length // 2 - 50
                 truncated_content = (
                     execution_res[:keep_length]
-                    + "\n\n[... 内容已截断 ...]\n\n"
+                    + "\n\n[... содержимое обрезано ...]\n\n"
                     + execution_res[-keep_length:]
                 )
 
@@ -199,37 +199,37 @@ class ExecutionContextManager:
     def _format_context_info(
         self, steps: List[Dict[str, Any]], current_step: Dict[str, Any]
     ) -> str:
-        """格式化上下文信息"""
+        """Форматирование информации о контексте"""
         if not steps:
-            return "没有已完成的步骤。"
+            return "Нет завершенных шагов."
 
         context_parts = []
-        context_parts.append(f"已完成 {len(steps)} 个研究步骤：\n")
+        context_parts.append(f"Завершено {len(steps)} исследовательских шагов:\n")
 
         for i, step in enumerate(steps, 1):
-            step_info = f"{i}. {step.get('step', '未知步骤')}"
+            step_info = f"{i}. {step.get('step', 'Неизвестный шаг')}"
             execution_res = step.get("execution_res", "")
 
             if execution_res:
-                # 限制每个步骤在上下文中的长度
+                # Ограничить длину каждого шага в контексте
                 if len(execution_res) > 300:
                     execution_res = execution_res[:300] + "..."
-                step_info += f"\n   结果: {execution_res}"
+                step_info += f"\n   Результат: {execution_res}"
 
             context_parts.append(step_info)
 
         return "\n".join(context_parts)
 
     def _compress_observations(self, observations: List[str]) -> List[str]:
-        """压缩观察结果列表"""
+        """Сжатие списка наблюдений"""
         if not observations:
             return observations
 
-        # 保留最近的观察结果
+        # Сохранить последние наблюдения
         recent_count = max(1, len(observations) // 2)
         recent_observations = observations[-recent_count:]
 
-        # 如果还是太长，进一步截断每个观察结果
+        # Если все еще слишком длинно, дополнительно усечь каждое наблюдение
         compressed = []
         remaining_budget = self.config.max_observations_length
 
@@ -238,8 +238,8 @@ class ExecutionContextManager:
                 break
 
             if len(obs) > remaining_budget:
-                # 截断这个观察结果
-                truncated_obs = obs[: remaining_budget - 50] + "...[截断]"
+                # Усечь это наблюдение
+                truncated_obs = obs[: remaining_budget - 50] + "...[обрезано]"
                 compressed.insert(0, truncated_obs)
                 break
             else:
@@ -251,15 +251,15 @@ class ExecutionContextManager:
     def _simple_message_truncation(
         self, messages: List[BaseMessage], token_limit: int
     ) -> List[BaseMessage]:
-        """简单的消息截断策略"""
+        """Простая стратегия усечения сообщений"""
         if not messages:
             return messages
 
-        # 保留系统消息和最近的用户/助手消息
+        # Сохранить системные сообщения и последние сообщения пользователя/ассистента
         system_messages = [msg for msg in messages if msg.type == "system"]
         other_messages = [msg for msg in messages if msg.type != "system"]
 
-        # 从最新消息开始保留
+        # Начать сохранение с самых новых сообщений
         truncated_messages = system_messages[:]
         current_tokens = sum(
             count_tokens(msg.content).total_tokens for msg in system_messages
@@ -280,19 +280,19 @@ class ExecutionContextManager:
     def manage_observations_advanced(
         self, observations: List[str], optimization_level: str = "standard"
     ) -> List[str]:
-        """高级观察结果管理，支持智能压缩和去重
+        """Расширенное управление наблюдениями с поддержкой умного сжатия и дедупликации
 
         Args:
-            observations: 观察结果列表
-            optimization_level: 优化级别 ("minimal", "standard", "aggressive")
+            observations: Список наблюдений
+            optimization_level: Уровень оптимизации ("minimal", "standard", "aggressive")
 
         Returns:
-            优化后的观察结果列表
+            Оптимизированный список наблюдений
         """
         if not observations:
             return observations
 
-        # 根据优化级别设置参数
+        # Установить параметры в соответствии с уровнем оптимизации
         if optimization_level == "minimal":
             max_observations = len(observations)
             compression_ratio = 0.9
@@ -303,19 +303,19 @@ class ExecutionContextManager:
             max_observations = max(3, len(observations) // 3)
             compression_ratio = 0.5
 
-        # 1. 去重处理
+        # 1. Обработка дедупликации
         deduplicated = self._deduplicate_observations(observations)
 
-        # 2. 重要性评分和排序
+        # 2. Оценка важности и сортировка
         scored_observations = self._score_observations(deduplicated)
 
-        # 3. 选择最重要的观察结果
+        # 3. Выбор самых важных наблюдений
         selected = sorted(scored_observations, key=lambda x: x[1], reverse=True)[
             :max_observations
         ]
         selected_observations = [obs for obs, score in selected]
 
-        # 4. 内容压缩
+        # 4. Сжатие содержимого
         compressed = self._compress_observation_content(
             selected_observations, compression_ratio
         )
@@ -330,17 +330,17 @@ class ExecutionContextManager:
     def optimize_planning_context(
         self, messages: List[BaseMessage], observations: List[str], plan_iterations: int
     ) -> Tuple[List[BaseMessage], List[str]]:
-        """规划阶段的上下文优化
+        """Оптимизация контекста на этапе планирования
 
         Args:
-            messages: 消息历史
-            observations: 观察结果
-            plan_iterations: 规划迭代次数
+            messages: История сообщений
+            observations: Наблюдения
+            plan_iterations: Количество итераций планирования
 
         Returns:
-            优化后的消息列表和观察结果列表
+            Оптимизированные списки сообщений и наблюдений
         """
-        # 根据迭代次数调整优化强度
+        # Настроить интенсивность оптимизации в зависимости от количества итераций
         if plan_iterations <= 2:
             optimization_level = "minimal"
         elif plan_iterations <= 5:
@@ -348,10 +348,10 @@ class ExecutionContextManager:
         else:
             optimization_level = "aggressive"
 
-        # 优化消息历史
+        # Оптимизация истории сообщений
         optimized_messages = self._optimize_planning_messages(messages, plan_iterations)
 
-        # 优化观察结果
+        # Оптимизация наблюдений
         optimized_observations = self.manage_observations_advanced(
             observations, optimization_level
         )
@@ -366,17 +366,17 @@ class ExecutionContextManager:
     def manage_token_budget(
         self, task_id: str, model_name: str, parallel_tasks: int = 1
     ) -> TokenAllocation:
-        """集成的Token预算管理
+        """Интегрированное управление бюджетом токенов
 
         Args:
-            task_id: 任务ID
-            model_name: 模型名称
-            parallel_tasks: 并行任务数量
+            task_id: ID задачи
+            model_name: Имя модели
+            parallel_tasks: Количество параллельных задач
 
         Returns:
-            Token分配结果
+            Результат распределения токенов
         """
-        # 基础token限制（根据模型类型）
+        # Базовое ограничение токенов (в зависимости от типа модели)
         base_limits = {
             "deepseek-chat": 32000,
             "deepseek-reasoner": 64000,
@@ -386,7 +386,7 @@ class ExecutionContextManager:
 
         base_limit = base_limits.get(model_name, 8000)
 
-        # 根据并行任务数量和预算比例分配
+        # Распределение в зависимости от количества параллельных задач и доли бюджета
         allocated_tokens = int(
             (base_limit * self.config.token_budget_ratio) / max(1, parallel_tasks)
         )
@@ -398,7 +398,7 @@ class ExecutionContextManager:
             parallel_tasks=parallel_tasks,
         )
 
-        # 记录分配
+        # Записать распределение
         self._task_allocations[task_id] = allocation
 
         logger.info(
@@ -409,22 +409,22 @@ class ExecutionContextManager:
         return allocation
 
     def release_task_resources(self, task_id: str) -> None:
-        """释放任务资源
+        """Освобождение ресурсов задачи
 
         Args:
-            task_id: 任务ID
+            task_id: ID задачи
         """
         if task_id in self._task_allocations:
             del self._task_allocations[task_id]
             logger.debug(f"Released resources for task {task_id}")
 
     def _deduplicate_observations(self, observations: List[str]) -> List[str]:
-        """去重观察结果"""
+        """Дедупликация наблюдений"""
         seen_hashes = set()
         deduplicated = []
 
         for obs in observations:
-            # 使用内容哈希进行去重
+            # Использовать хэш содержимого для дедупликации
             content_hash = hashlib.md5(str(obs).encode()).hexdigest()
             if content_hash not in seen_hashes:
                 seen_hashes.add(content_hash)
@@ -433,13 +433,13 @@ class ExecutionContextManager:
         return deduplicated
 
     def _score_observations(self, observations: List[str]) -> List[Tuple[str, float]]:
-        """为观察结果评分"""
+        """Оценка наблюдений"""
         scored = []
 
         for obs in observations:
             score = 0.0
 
-            # 长度评分（适中长度得分更高）
+            # Оценка по длине (умеренная длина получает более высокий балл)
             length = len(obs)
             if 100 <= length <= 2000:
                 score += 1.0
@@ -448,13 +448,13 @@ class ExecutionContextManager:
             else:
                 score += 0.3
 
-            # 关键词评分
-            keywords = ["结论", "发现", "重要", "关键", "建议", "总结", "分析"]
+            # Оценка по ключевым словам
+            keywords = ["вывод", "открытие", "важно", "ключевой", "предложение", "итог", "анализ"]
             for keyword in keywords:
                 if keyword in obs:
                     score += 0.2
 
-            # 结构化内容评分
+            # Оценка за структурированное содержимое
             if any(marker in obs for marker in ["##", "**", "1.", "2.", "-"]):
                 score += 0.3
 
@@ -465,7 +465,7 @@ class ExecutionContextManager:
     def _compress_observation_content(
         self, observations: List[str], compression_ratio: float
     ) -> List[str]:
-        """压缩观察结果内容"""
+        """Сжатие содержимого наблюдений"""
         compressed = []
 
         for obs in observations:
@@ -474,13 +474,13 @@ class ExecutionContextManager:
             if len(obs) <= target_length:
                 compressed.append(obs)
             else:
-                # 保留开头和结尾，中间压缩
+                # Сохранить начало и конец, сжать середину
                 keep_start = target_length // 2
-                keep_end = target_length - keep_start - 20  # 为省略号留空间
+                keep_end = target_length - keep_start - 20  # Оставить место для многоточия
 
                 if keep_end > 0:
                     compressed_obs = (
-                        obs[:keep_start] + "\n[...内容已压缩...]\n" + obs[-keep_end:]
+                        obs[:keep_start] + "\n[...содержимое сжато...]\n" + obs[-keep_end:]
                     )
                 else:
                     compressed_obs = obs[:target_length] + "..."
@@ -492,69 +492,69 @@ class ExecutionContextManager:
     def _optimize_planning_messages(
         self, messages: List[BaseMessage], plan_iterations: int
     ) -> List[BaseMessage]:
-        """优化规划消息历史"""
+        """Оптимизация истории сообщений для планирования"""
         if len(messages) <= 8:
             return messages
 
-        # 保留重要消息
+        # Сохранить важные сообщения
         important_messages = []
         regular_messages = []
 
         for msg in messages:
             content = msg.content.lower()
 
-            # 识别重要消息
+            # Распознать важные сообщения
             if any(
                 keyword in content
-                for keyword in ["用户请求", "任务目标", "错误", "失败", "重要", "关键"]
+                for keyword in ["запрос пользователя", "цель задачи", "ошибка", "неудача", "важно", "ключевой"]
             ):
                 important_messages.append(msg)
             else:
                 regular_messages.append(msg)
 
-        # 根据迭代次数决定保留的常规消息数量
+        # Определить количество сохраняемых обычных сообщений в зависимости от количества итераций
         if plan_iterations <= 3:
             keep_regular = len(regular_messages) // 2
         else:
             keep_regular = len(regular_messages) // 3
 
-        # 保留最近的常规消息
+        # Сохранить последние обычные сообщения
         kept_regular = regular_messages[-keep_regular:] if keep_regular > 0 else []
 
-        # 合并并按时间排序
+        # Объединить и отсортировать по времени
         optimized = important_messages + kept_regular
 
-        # 简单的时间排序（假设消息按时间顺序）
+        # Простая сортировка по времени (предполагается, что сообщения идут в хронологическом порядке)
         return optimized
 
     def evaluate_and_optimize_context_before_call_sync(
         self, llm_func, args: tuple, kwargs: dict, operation_name: str, context: str
     ) -> tuple:
-        """同步版本的上下文评估和优化
+        """Синхронная версия оценки и оптимизации контекста
 
         Args:
-            llm_func: LLM函数
-            args: 位置参数
-            kwargs: 关键字参数
-            operation_name: 操作名称
-            context: 上下文信息
+            llm_func: LLM-функция
+            args: Позиционные аргументы
+            kwargs: Именованные аргументы
+            operation_name: Имя операции
+            context: Информация о контексте
 
         Returns:
-            优化后的(args, kwargs)元组
+            Кортеж с оптимизированными (args, kwargs)
         """
         try:
-            # 从参数中提取消息
+            # Извлечь сообщения из параметров
             messages = self._extract_messages_from_args(args, kwargs)
             if not messages:
                 return args, kwargs
 
-            # 获取模型名称
+            # Получить имя модели
             self._extract_model_name(llm_func, kwargs)
 
-            # 应用消息优化
+            # Применить оптимизацию сообщений
             optimized_messages = self.optimize_messages(messages)
 
-            # 更新参数中的消息
+            # Обновить сообщения в параметрах
             new_args, new_kwargs = self._update_args_with_messages(
                 args, kwargs, optimized_messages
             )
@@ -576,31 +576,31 @@ class ExecutionContextManager:
     async def evaluate_and_optimize_context_before_call(
         self, llm_func, args: tuple, kwargs: dict, operation_name: str, context: str
     ) -> tuple:
-        """异步版本的上下文评估和优化
+        """Асинхронная версия оценки и оптимизации контекста
 
         Args:
-            llm_func: LLM函数
-            args: 位置参数
-            kwargs: 关键字参数
-            operation_name: 操作名称
-            context: 上下文信息
+            llm_func: LLM-функция
+            args: Позиционные аргументы
+            kwargs: Именованные аргументы
+            operation_name: Имя операции
+            context: Информация о контексте
 
         Returns:
-            优化后的(args, kwargs)元组
+            Кортеж с оптимизированными (args, kwargs)
         """
         try:
-            # 从参数中提取消息
+            # Извлечь сообщения из параметров
             messages = self._extract_messages_from_args(args, kwargs)
             if not messages:
                 return args, kwargs
 
-            # 获取模型名称
+            # Получить имя модели
             self._extract_model_name(llm_func, kwargs)
 
-            # 应用消息优化
+            # Применить оптимизацию сообщений
             optimized_messages = self.optimize_messages(messages)
 
-            # 更新参数中的消息
+            # Обновить сообщения в параметрах
             new_args, new_kwargs = self._update_args_with_messages(
                 args, kwargs, optimized_messages
             )
@@ -622,10 +622,10 @@ class ExecutionContextManager:
     def _extract_messages_from_args(
         self, args: tuple, kwargs: dict
     ) -> List[BaseMessage]:
-        """从函数参数中提取消息列表"""
+        """Извлечение списка сообщений из аргументов функции"""
         messages = []
 
-        # 检查位置参数中的消息
+        # Проверить сообщения в позиционных аргументах
         for arg in args:
             if isinstance(arg, list) and arg and isinstance(arg[0], BaseMessage):
                 messages = arg
@@ -634,7 +634,7 @@ class ExecutionContextManager:
                 messages = [arg]
                 break
 
-        # 检查关键字参数中的消息
+        # Проверить сообщения в именованных аргументах
         if not messages:
             for key in ["messages", "input", "prompt"]:
                 if key in kwargs:
@@ -653,12 +653,12 @@ class ExecutionContextManager:
         return messages
 
     def _extract_model_name(self, llm_func, kwargs: dict) -> str:
-        """从LLM函数或参数中提取模型名称"""
-        # 尝试从kwargs中获取
+        """Извлечение имени модели из LLM-функции или аргументов"""
+        # Попытаться получить из kwargs
         if "model" in kwargs:
             return kwargs["model"]
 
-        # 尝试从llm_func的属性中获取
+        # Попытаться получить из атрибутов llm_func
         if hasattr(llm_func, "__self__"):
             llm_instance = llm_func.__self__
             if hasattr(llm_instance, "model_name"):
@@ -666,17 +666,17 @@ class ExecutionContextManager:
             elif hasattr(llm_instance, "model"):
                 return llm_instance.model
 
-        # 默认值
+        # Значение по умолчанию
         return "deepseek-chat"
 
     def _update_args_with_messages(
         self, args: tuple, kwargs: dict, optimized_messages: List[BaseMessage]
     ) -> tuple:
-        """用优化后的消息更新函数参数"""
+        """Обновление аргументов функции оптимизированными сообщениями"""
         new_args = list(args)
         new_kwargs = kwargs.copy()
 
-        # 更新位置参数中的消息
+        # Обновить сообщения в позиционных аргументах
         for i, arg in enumerate(args):
             if isinstance(arg, list) and arg and isinstance(arg[0], BaseMessage):
                 new_args[i] = optimized_messages
@@ -685,7 +685,7 @@ class ExecutionContextManager:
                 new_args[i] = optimized_messages[0] if optimized_messages else arg
                 return tuple(new_args), new_kwargs
 
-        # 更新关键字参数中的消息
+        # Обновить сообщения в именованных аргументах
         for key in ["messages", "input", "prompt"]:
             if key in kwargs:
                 value = kwargs[key]
