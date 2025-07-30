@@ -236,7 +236,7 @@ class ReflectionContext:
     resources_found: int = 0
     total_steps: int = 0
     current_step_index: int = 0
-    locale: str = "en-US"
+    locale: str = "ru-RU"
     max_reflection_loops: int = 1
     current_reflection_loop: int = 0
 

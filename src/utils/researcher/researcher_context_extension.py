@@ -222,7 +222,7 @@ class ResearcherContextExtension:
         agent_input = {
             "messages": [
                 HumanMessage(
-                    content=f"{context_info}\n\n# Current Task\n\n## Title\n\n{current_step.title}\n\n## Description\n\n{current_step.description}\n\n## Locale\n\n{state.get('locale', 'en-US')}"
+                    content=f"{context_info}\n\n# Current Task\n\n## Title\n\n{current_step.title}\n\n## Description\n\n{current_step.description}\n\n## Locale\n\n{state.get('locale', 'ru-RU')}"
                 )
             ]
         }
@@ -374,7 +374,7 @@ class ResearcherContextExtension:
                     observations=observations,
                     total_steps=len(current_plan.steps) if current_plan else 0,
                     current_step_index=len(completed_steps),
-                    locale=state.get("locale", "en-US"),
+                    locale=state.get("locale", ""),
                 )
 
                 # Get reflection insights - need to await the coroutine
@@ -602,7 +602,7 @@ class ResearcherContextExtension:
         agent_input = {
             "messages": [
                 HumanMessage(
-                    content=f"# Current Task\n\n## Title\n\n{current_step.title}\n\n## Description\n\n{current_step.description}\n\n## Locale\n\n{state.get('locale', 'en-US')}"
+                    content=f"# Current Task\n\n## Title\n\n{current_step.title}\n\n## Description\n\n{current_step.description}\n\n## Locale\n\n{state.get('locale', '')}"
                 )
             ]
         }

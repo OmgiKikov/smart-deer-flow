@@ -7,12 +7,12 @@ from src.prose.graph.state import ProseState
 
 # Operation definitions
 OPERATIONS = {
-    "continue": "continues existing text based on context",
-    "improve": "improves existing text quality",
-    "fix": "fixes grammar and spelling errors",
-    "longer": "lengthens existing text",
-    "shorter": "shortens existing text",
-    "zap": "generates text based on a command",
+    "continue": "продолжает существующий текст на основе контекста",
+    "improve": "улучшает качество существующего текста",
+    "fix": "исправляет грамматические и орфографические ошибки",
+    "longer": "удлиняет существующий текст",
+    "shorter": "сокращает существующий текст",
+    "zap": "генерирует текст на основе команды",
 }
 
 
@@ -21,7 +21,7 @@ def _process_prose_operation(state: ProseState) -> Dict[str, Any]:
     option = state.get("option", "")
     content = state.get("content", "")
     command = state.get("command", "")
-    locale = state.get("locale", "en-US")
+    locale = state.get("locale", "ru-RU")
 
     # Validate operation
     if option not in OPERATIONS:

@@ -159,7 +159,7 @@ class ResearcherContextIsolator:
 
         # Create a new State object with the same attributes
         optimized_state = {
-            "locale": state.get("locale", "en-US"),
+            "locale": state.get("locale", ""),
             "research_topic": state.get("research_topic", ""),
             "observations": state.get("observations", []),
             "resources": state.get("resources", []),

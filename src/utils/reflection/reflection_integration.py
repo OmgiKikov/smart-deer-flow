@@ -403,7 +403,7 @@ class ReflectionIntegrator:
                 else 1
             ),
             current_step_index=len(completed_steps),
-            locale=state.get("locale", "en-US"),
+            locale=state.get("locale", "ru-RU"),
             max_reflection_loops=self.config.max_reflection_iterations,
         )
 

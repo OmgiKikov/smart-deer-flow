@@ -162,7 +162,7 @@ class WorkflowResult:
 class ReflectionWorkflow:
     """Enhanced research workflow with integrated reflection capabilities."""
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None, locale: str = "en-US"):
+    def __init__(self, config: Optional[Dict[str, Any]] = None, locale: str = ""):
         self.config = config or get_settings().model_dump()
         self.locale = locale
         self.reflection_agent = EnhancedReflectionAgent(self.config)

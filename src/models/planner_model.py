@@ -75,7 +75,7 @@ class Step(BaseModel):
 class Plan(BaseModel):
     locale: str = Field(
         ...,
-        description="e.g. 'en-US' or 'zh-CN', based on the user's language",
+        description="'ru-RU'",
         pattern=r"^[a-z]{2}-[A-Z]{2}$",
         max_length=10,
     )
@@ -130,17 +130,18 @@ class Plan(BaseModel):
         json_schema_extra={
             "examples": [
                 {
+                    "locale": "ru-RU",
                     "has_enough_context": False,
                     "thought": (
-                        "To understand the current market trends in AI, we need to gather comprehensive information."
+                        "Чтобы понять текущие тенденции рынка ИИ, нам нужно собрать исчерпывающую информацию."
                     ),
-                    "title": "AI Market Research Plan",
+                    "title": "План исследования рынка ИИ",
                     "steps": [
                         {
                             "need_search": True,
-                            "title": "Current AI Market Analysis",
+                            "title": "Анализ текущего рынка ИИ",
                             "description": (
-                                "Collect data on market size, growth rates, major players, and investment trends in AI sector."
+                                "Собрать данные о размере рынка, темпах роста, основных игроках и инвестиционных трендах в секторе ИИ."
                             ),
                             "step_type": "research",
                         }

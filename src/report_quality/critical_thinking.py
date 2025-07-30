@@ -96,7 +96,7 @@ class CriticalAnalysis:
 class LimitationDetector:
     """Limitation Detector"""
 
-    def __init__(self, language: Language = Language.ZH_CN):
+    def __init__(self, language: Language = Language.RU_RU):
         self.language = language
         self.i18n = get_i18n_manager()
         self.i18n.set_language(language)
@@ -147,6 +147,29 @@ class LimitationDetector:
                     r"using.*?method",
                     r"based\s+on.*?model",
                     r"through.*?analysis",
+                ],
+            },
+            Language.RU_RU: {
+                LimitationType.SAMPLE_SIZE: [
+                    r"(\d+)\s*(компаний|участников|образцов|случаев)",
+                    r"на основе\s*(\d+)\s*(случаев|примеров)",
+                    r"размер выборки\s*(\d+)",
+                ],
+                LimitationType.TIME_PERIOD: [
+                    r"(\d{4})\s*(год|года)\s*данные",
+                    r"последние\s+(\d+)\s*(лет|года|месяцев|дней)",
+                    r"(\d{4})\s*-\s*(\d{4})",
+                    r"(Q[1-4])\s*квартал",
+                ],
+                LimitationType.GEOGRAPHIC_SCOPE: [
+                    r"(Россия|США|Европа|Азия)\s*(рынок|регион)",
+                    r"ограничено.*регионом",
+                    r"только в.*области",
+                ],
+                LimitationType.METHODOLOGY: [
+                    r"используя.*метод",
+                    r"на основе.*модели",
+                    r"через.*анализ",
                 ],
             },
         }
@@ -252,6 +275,14 @@ class LimitationDetector:
                 r"最近",
             ]
             year_pattern = r"(\d{4})\s*年"
+        elif self.language == Language.RU_RU:
+            short_period_patterns = [
+                r"(\d+)\s*месяц",
+                r"(\d+)\s*квартал",
+                r"недавний период",
+                r"в последнее время",
+            ]
+            year_pattern = r"(\d{4})\s*(год|года)"
         else:  # English
             short_period_patterns = [
                 r"(\d+)\s*months?",
@@ -291,6 +322,11 @@ class LimitationDetector:
         if years:
             if self.language == Language.ZH_CN:
                 latest_year = max(int(year) for year in years)
+            elif self.language == Language.RU_RU:
+                latest_year = max(
+                    int(match[0]) if isinstance(match, tuple) else int(match)
+                    for match in years
+                )
             else:
                 latest_year = max(
                     int(match[0]) if isinstance(match, tuple) else int(match)
@@ -335,6 +371,16 @@ class LimitationDetector:
                 "单一市场",
                 "特定地区",
                 "区域性",
+            ]
+        elif self.language == Language.RU_RU:
+            geographic_indicators = [
+                "только в России",
+                "только в США",
+                "ограничено",
+                "ограничено.*регионом",
+                "единый рынок",
+                "определенный регион",
+                "региональный",
             ]
         else:  # English
             geographic_indicators = [
@@ -382,6 +428,8 @@ class LimitationDetector:
         # Language-specific methodology indicators
         if self.language == Language.ZH_CN:
             single_method_indicators = ["仅使用", "只采用", "单一方法", "基于.*模型"]
+        elif self.language == Language.RU_RU:
+            single_method_indicators = ["только используя", "исключительно применяя", "единственный метод", "на основе.*модели"]
         else:  # English
             single_method_indicators = [
                 "only use",
@@ -478,7 +526,7 @@ class LimitationDetector:
 class ConfidenceAssessor:
     """Confidence assessor"""
 
-    def __init__(self, language: Language = Language.ZH_CN):
+    def __init__(self, language: Language = Language.RU_RU):
         self.language = language
         self.i18n = get_i18n_manager()
         self.i18n.set_language(language)
@@ -561,6 +609,44 @@ class ConfidenceAssessor:
                     "insufficient evidence",
                 ],
             },
+            Language.RU_RU: {
+                ConfidenceLevel.VERY_HIGH: [
+                    "множественные исследования подтверждают",
+                    "крупномасштабное рандомизированное контролируемое исследование",
+                    "мета-анализ показывает",
+                    "авторитетная организация подтверждает",
+                    "согласованные выводы",
+                ],
+                ConfidenceLevel.HIGH: [
+                    "множественные источники данных",
+                    "повторная проверка",
+                    "статистически значимо",
+                    "авторитетные источники",
+                    "долгосрочное отслеживание",
+                ],
+                ConfidenceLevel.MEDIUM: [
+                    "предварительное исследование",
+                    "частичные доказательства",
+                    "ограниченная выборка",
+                    "краткосрочное наблюдение",
+                    "единичное исследование",
+                ],
+                ConfidenceLevel.LOW: [
+                    "теоретическое предположение",
+                    "неформальное наблюдение",
+                    "анекдотические доказательства",
+                    "мнение эксперта",
+                    "предварительный анализ",
+                ],
+                ConfidenceLevel.VERY_LOW: [
+                    "предположение",
+                    "гипотеза",
+                    "возможно",
+                    "может быть",
+                    "пока нет заключения",
+                    "недостаточно доказательств",
+                ],
+            },
         }
 
     def set_language(self, language: Language):
@@ -640,7 +726,7 @@ class ConfidenceAssessor:
 class BiasDetector:
     """Bias detector"""
 
-    def __init__(self, language: Language = Language.ZH_CN):
+    def __init__(self, language: Language = Language.RU_RU):
         self.language = language
         self.i18n = get_i18n_manager()
         self.i18n.set_language(language)
@@ -709,6 +795,40 @@ class BiasDetector:
                     "based on.*expectation",
                     "anchored.*value",
                     "influenced by.*",
+                ],
+            },
+            Language.RU_RU: {
+                "confirmation_bias": [
+                    "рассматривать только.*поддержку",
+                    "игнорировать.*противоположное",
+                    "селективное.*использование",
+                    "фокусироваться только.*положительное",
+                    "исключать.*отрицательное",
+                    "благоприятные.*доказательства",
+                ],
+                "survivorship_bias": [
+                    "успешные случаи",
+                    "выжившие",
+                    "смотреть только.*выживших",
+                    "игнорировать.*неудачи",
+                    "исключать.*покинувших рынок",
+                    "успешные.*предприятия",
+                ],
+                "availability_bias": [
+                    "недавние случаи",
+                    "легко вспомнить",
+                    "медиа отчеты",
+                    "впечатляющий",
+                    "известные случаи",
+                    "популярные.*события",
+                ],
+                "anchoring_bias": [
+                    "на основе.*эталона",
+                    "ссылка.*цена",
+                    "на основе.*ожиданий",
+                    "привязанная.*стоимость",
+                    "под влиянием.*",
+                    "ссылаясь на.*стандарт",
                 ],
             },
         }
@@ -801,7 +921,7 @@ class BiasDetector:
 class CriticalThinkingEngine:
     """Critical thinking engine"""
 
-    def __init__(self, language: Language = Language.ZH_CN):
+    def __init__(self, language: Language = Language.RU_RU):
         self.language = language
         self.i18n = get_i18n_manager()
         self.i18n.set_language(language)
@@ -879,6 +999,19 @@ class CriticalThinkingEngine:
                 r"证明",
                 r"显示",
             ]
+        elif self.language == Language.RU_RU:
+            sentences = re.split(r"[.!?]", content)
+            important_patterns = [
+                r"результаты показывают",
+                r"исследование показывает",
+                r"данные подтверждают",
+                r"анализ показывает",
+                r"можно увидеть",
+                r"указывает",
+                r"доказывает",
+                r"демонстрирует",
+                r"показывает",
+            ]
         else:
             sentences = re.split(r"[.!?]", content)
             important_patterns = [
@@ -919,6 +1052,14 @@ class CriticalThinkingEngine:
                 r"研究发现.*?[。！？]",
                 r"\[.*?\]\(.*?\)",  # Markdown links
                 r"来源[:：].*?[。！？]",
+            ]
+        elif self.language == Language.RU_RU:
+            patterns = [
+                r"данные показывают.*?[.!?]",
+                r"согласно.*?[.!?]",
+                r"исследование обнаружило.*?[.!?]",
+                r"\[.*?\]\(.*?\)",  # Markdown links
+                r"источник[:：].*?[.!?]",
             ]
         else:
             patterns = [
@@ -1025,7 +1166,7 @@ class CriticalThinkingEngine:
 
 
 # Usage example
-def demo_critical_thinking(language: Language = Language.ZH_CN):
+def demo_critical_thinking(language: Language = Language.RU_RU):
     """Demonstrate critical thinking engine"""
     engine = CriticalThinkingEngine(language)
 
@@ -1036,6 +1177,13 @@ def demo_critical_thinking(language: Language = Language.ZH_CN):
         数据显示平均收益率达到15%，远超市场预期。
         这一结果表明科技行业具有强劲的增长潜力。
         建议投资者增加科技股配置。
+        """
+    elif language == Language.RU_RU:
+        sample_content = """
+        На основе анализа 100 компаний, исследование показывает, что технологические акции показали отличные результаты в 2023 году.
+        Данные показывают, что средняя доходность достигла 15%, значительно превысив рыночные ожидания.
+        Этот результат указывает на то, что технологическая отрасль имеет сильный потенциал роста.
+        Рекомендуется инвесторам увеличить долю технологических акций.
         """
     else:
         sample_content = """

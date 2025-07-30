@@ -62,7 +62,7 @@ class State(MessagesState):
     """State for the agent system, extends MessagesState with modular reflection state."""
 
     # Runtime Variables
-    locale: str = "en-US"
+    locale: str = "ru-RU"
     research_topic: str = ""
     observations: list[str] = []
     resources: list[Resource] = []

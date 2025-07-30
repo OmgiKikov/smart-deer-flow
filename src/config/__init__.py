@@ -16,7 +16,7 @@ from .models import (
     IsolationLevel,
 )
 from .config_loader import get_settings, get_config_loader, load_configuration, ConfigLoader
-from src.constants.questions import BUILT_IN_QUESTIONS, BUILT_IN_QUESTIONS_ZH_CN
+from src.constants.questions import BUILT_IN_QUESTIONS
 
 from dotenv import load_dotenv
 
@@ -35,5 +35,4 @@ __all__ = [
     "SummaryType",
     "IsolationLevel",
     "BUILT_IN_QUESTIONS",
-    "BUILT_IN_QUESTIONS_ZH_CN",
 ]

@@ -1,10 +1,10 @@
-"""Follow-up查询结果合并机制
+"""Механизм объединения результатов Follow-up запросов
 
-这个模块提供了智能的Follow-up查询结果合并功能，包括：
-- 内容去重和相似性检测
-- 智能结果优先级排序
-- 结构化数据合并
-- 质量评估和过滤
+Этот модуль предоставляет интеллектуальную функциональность объединения результатов Follow-up запросов, включая:
+- Дедупликацию контента и обнаружение схожести
+- Интеллектуальную приоритизацию результатов
+- Объединение структурированных данных
+- Оценку качества и фильтрацию
 """
 
 import logging
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class MergedResult:
-    """合并后的结果数据结构"""
+    """Структура данных объединенного результата"""
 
     content: str
     sources: List[str]
@@ -32,7 +32,7 @@ class MergedResult:
 
 @dataclass
 class ResultMetrics:
-    """结果质量指标"""
+    """Метрики качества результата"""
 
     content_length: int
     unique_information_ratio: float
@@ -42,7 +42,7 @@ class ResultMetrics:
 
 
 class FollowUpResultMerger:
-    """Follow-up查询结果智能合并器"""
+    """Интеллектуальный объединитель результатов Follow-up запросов"""
 
     def __init__(
         self,
@@ -53,14 +53,14 @@ class FollowUpResultMerger:
         enable_semantic_grouping: Optional[bool] = None,
     ):
         """
-        初始化合并器
+        Инициализация объединителя
 
         Args:
-            config: 合并器配置对象（优先级最高）
-            similarity_threshold: 内容相似度阈值（向后兼容）
-            min_content_length: 最小内容长度（向后兼容）
-            max_merged_results: 最大合并结果数（向后兼容）
-            enable_semantic_grouping: 是否启用语义分组（向后兼容）
+            config: Объект конфигурации объединителя (наивысший приоритет)
+            similarity_threshold: Порог схожести контента (обратная совместимость)
+            min_content_length: Минимальная длина контента (обратная совместимость)
+            max_merged_results: Максимальное количество объединенных результатов (обратная совместимость)
+            enable_semantic_grouping: Включить ли семантическую группировку (обратная совместимость)
         """
         # 导入配置（延迟导入避免循环依赖）
         if config is None:
@@ -112,17 +112,17 @@ class FollowUpResultMerger:
         query_context: Optional[str] = None,
     ) -> List[MergedResult]:
         """
-        合并Follow-up查询结果
+        Объединение результатов Follow-up запросов
 
         Args:
-            follow_up_results: Follow-up查询的原始结果
-            original_findings: 原始研究发现
-            query_context: 查询上下文
+            follow_up_results: Исходные результаты Follow-up запросов
+            original_findings: Первоначальные находки исследования
+            query_context: Контекст запроса
 
         Returns:
-            合并后的结果列表
+            Список объединенных результатов
         """
-        logger.info(f"开始合并 {len(follow_up_results)} 个Follow-up结果")
+        logger.info(f"Начинаем объединение {len(follow_up_results)} результатов Follow-up")
 
         # 更新统计信息
         self._stats["total_merges"] += 1
@@ -158,7 +158,7 @@ class FollowUpResultMerger:
         final_results = self._apply_final_filters(scored_results)
 
         logger.info(
-            f"合并完成，从 {len(follow_up_results)} 个结果合并为 {len(final_results)} 个"
+            f"Объединение завершено: {len(follow_up_results)} результатов объединены в {len(final_results)}"
         )
         return final_results
 
@@ -250,9 +250,9 @@ class FollowUpResultMerger:
                 seen_fingerprints.add(fingerprint)
                 deduplicated.append(result)
             else:
-                logger.debug(f"发现重复内容，已跳过: {content[:100]}...")
+                logger.debug(f"Обнаружен дублированный контент, пропущен: {content[:100]}...")
 
-        logger.info(f"去重后保留 {len(deduplicated)}/{len(results)} 个结果")
+        logger.info(f"После дедупликации сохранено {len(deduplicated)}/{len(results)} результатов")
         return deduplicated
 
     def _generate_content_fingerprint(self, content: str) -> str:
@@ -332,9 +332,9 @@ class FollowUpResultMerger:
                 filtered.append(result)
             else:
                 self._stats["deduplication_count"] += 1
-                logger.debug(f"过滤重复内容: {result['content'][:100]}...")
+                logger.debug(f"Отфильтрован дублированный контент: {result['content'][:100]}...")
 
-        logger.info(f"原始发现过滤后保留 {len(filtered)}/{len(results)} 个结果")
+        logger.info(f"После фильтрации исходных находок сохранено {len(filtered)}/{len(results)} результатов")
         return filtered
 
     def _calculate_similarity(self, text1: str, text2: str) -> float:
@@ -378,7 +378,7 @@ class FollowUpResultMerger:
             return similarity
 
         except Exception as e:
-            logger.warning(f"相似度计算失败: {e}")
+            logger.warning(f"Ошибка вычисления схожести: {e}")
             return 0.0
 
     def _group_by_semantic_similarity(
@@ -411,7 +411,7 @@ class FollowUpResultMerger:
             ungrouped = remaining
             groups.append(current_group)
 
-        logger.info(f"语义分组完成: {len(results)} 个结果分为 {len(groups)} 组")
+        logger.info(f"Семантическая группировка завершена: {len(results)} результатов разделены на {len(groups)} групп")
         return groups
 
     def _merge_group(
@@ -621,7 +621,7 @@ class FollowUpResultMerger:
         final_results = filtered[: self.config.max_merged_results]
 
         logger.info(
-            f"最终过滤: {len(results)} -> {len(filtered)} -> {len(final_results)}"
+            f"Финальная фильтрация: {len(results)} -> {len(filtered)} -> {len(final_results)}"
         )
         return final_results
 

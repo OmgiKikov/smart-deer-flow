@@ -13,7 +13,7 @@ class ProseState(MessagesState):
     content: str = ""  # Text content to process
     option: str = ""  # Operation: continue, improve, fix, longer, shorter, zap
     command: Optional[str] = None  # Command for zap operation
-    locale: str = "en-US"  # Language locale
+    locale: str = "ru-RU"  # Language locale
 
     # Output fields
     prose_content: Optional[str] = None  # Main output

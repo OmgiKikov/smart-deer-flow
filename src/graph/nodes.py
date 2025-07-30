@@ -192,7 +192,6 @@ def get_configuration_from_config(config):
 @tool
 def handoff_to_planner(
     research_topic: Annotated[str, "The topic of the research task to be handed off."],
-    locale: Annotated[str, "The user's detected language locale (e.g., en-US, zh-CN)."],
 ):
     """Handoff to planner agent to do plan."""
     # This tool is not returning anything: we're just using it
@@ -593,6 +592,10 @@ REFLECTION INSIGHTS FROM PREVIOUS RESEARCH:
 
     if configurable.agents.enable_deep_thinking:
         llm = get_llm_by_type("reasoning")
+        # Check if this is GigaChat and use structured output
+        if hasattr(llm, '__class__') and 'GigaChat' in llm.__class__.__name__:
+            logger.info("Using GigaChat with structured output for planner (reasoning mode)")
+            llm = llm.with_structured_output(Plan, method="format_instructions")
         # llm = get_llm_by_type("reasoning").with_structured_output(
         #    Plan,
         #    method="transform",
@@ -618,8 +621,9 @@ REFLECTION INSIGHTS FROM PREVIOUS RESEARCH:
     full_response = ""
     plan_object = None
     is_gigachat_structured = hasattr(llm, '__class__') and 'GigaChat' in llm.__class__.__name__ and hasattr(llm, '_with_structured_output')
+    is_gigachat = hasattr(llm, '__class__') and 'GigaChat' in llm.__class__.__name__
     
-    if use_structured_output or is_gigachat_structured:
+    if use_structured_output or is_gigachat_structured or is_gigachat:
         response = safe_llm_call(
             llm.invoke,
             messages,
@@ -840,7 +844,7 @@ def coordinator_node(
     logger.debug(f"Current state messages: {state['messages']}")
 
     goto = "__end__"
-    locale = state.get("locale", "en-US")  # Default locale if not specified
+    locale = state.get("locale", "")  # Default locale if not specified
     research_topic = state.get("research_topic", "")
 
     if len(response.tool_calls) > 0:
@@ -852,10 +856,7 @@ def coordinator_node(
             for tool_call in response.tool_calls:
                 if tool_call.get("name", "") != "handoff_to_planner":
                     continue
-                if tool_call.get("args", {}).get("locale") and tool_call.get(
-                    "args", {}
-                ).get("research_topic"):
-                    locale = tool_call.get("args", {}).get("locale")
+                if tool_call.get("args", {}).get("research_topic"):
                     research_topic = tool_call.get("args", {}).get("research_topic")
                     break
         except Exception as e:
@@ -888,7 +889,7 @@ def reporter_node(state: State, config: RunnableConfig):
                 f"# Research Requirements\n\n## Task\n\n{current_plan.title}\n\n## Description\n\n{current_plan.thought}"
             )
         ],
-        "locale": state.get("locale", "en-US"),
+        "locale": state.get("locale", ""),
     }
     invoke_messages = apply_prompt_template("reporter", input_, configurable)
     observations = state.get("observations", [])
@@ -1842,7 +1843,7 @@ async def researcher_node_with_isolation(
                         else 1
                     ),
                     current_step_index=len(completed_steps),
-                    locale=state.get("locale", "en-US"),
+                    locale=state.get("locale", ""),
                 )
 
                 # Initialize ReflectionIntegrator if not already done
@@ -1943,6 +1944,11 @@ async def researcher_node_with_isolation(
                     else:
                         reflection_result.follow_up_queries = []
 
+                # Ensure max_queries_per_iteration is valid
+                if not isinstance(max_queries_per_iteration, int) or max_queries_per_iteration < 1:
+                    logger.warning(f"Invalid max_queries_per_iteration: {max_queries_per_iteration}, using default 3")
+                    max_queries_per_iteration = 3
+                
                 queries_to_execute = reflection_result.follow_up_queries[
                     :max_queries_per_iteration
                 ]
@@ -2117,15 +2123,21 @@ async def researcher_node_with_isolation(
                         merger = FollowUpResultMerger(config=config)
 
                         # Merge results intelligently
-                        merged_findings, merged_observations, merge_stats = (
-                            merger.merge_follow_up_results(
-                                iteration_results,
-                                all_research_findings,  # Pass existing findings for deduplication
-                            )
+                        merged_results = merger.merge_follow_up_results(
+                            iteration_results,
+                            all_research_findings,  # Pass existing findings for deduplication
                         )
 
-                        # Add merged results to accumulated findings
+                        # Extract findings from merged results and add to accumulated findings
+                        merged_findings = [result.content for result in merged_results]
                         all_research_findings.extend(merged_findings)
+                        
+                        # Get merge statistics
+                        merge_stats = merger.get_merge_statistics(merged_results)
+                        # Add key points from merged results as observations
+                        merged_observations = []
+                        for result in merged_results:
+                            merged_observations.extend(result.key_points)
                         all_observations.extend(merged_observations)
 
                         # Log merge statistics and performance info
@@ -2169,7 +2181,7 @@ async def researcher_node_with_isolation(
                     else 1
                 ),
                 current_step_index=len(completed_steps),
-                locale=state.get("locale", "en-US"),
+                locale=state.get("locale", ""),
             )
 
             # Create a virtual final step for final reflection analysis

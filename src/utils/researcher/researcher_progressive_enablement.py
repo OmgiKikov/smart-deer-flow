@@ -292,7 +292,7 @@ class ResearcherProgressiveEnabler:
                     execution_results=[],
                     total_steps=scenario.step_count,
                     current_step_index=0,
-                    locale="en-US",
+                    locale="",
                 )
 
                 # Use analyze_knowledge_gaps for full reflection analysis

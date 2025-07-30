@@ -136,7 +136,7 @@ def _create_llm_use_conf(llm_type: LLMType, conf: Any, disable_tools: bool = Fal
             merged_conf["credentials"] = merged_conf.pop("api_key")
         
         # GigaChat uses 'scope' for API access level
-        merged_conf["scope"] = merged_conf.pop("scope", "GIGACHAT_API_PERS")
+        merged_conf["scope"] = merged_conf.get("scope", "GIGACHAT_API_PERS")
         
         # Remove base_url as GigaChat doesn't use it
         merged_conf.pop("base_url", None)
@@ -155,6 +155,11 @@ def _create_llm_use_conf(llm_type: LLMType, conf: Any, disable_tools: bool = Fal
         merged_conf.pop("model_name", None)
         
         return ChatGigaChat(**merged_conf)
+
+    # Remove GigaChat-specific parameters for non-GigaChat models
+    merged_conf.pop("scope", None)
+    merged_conf.pop("credentials", None)
+    merged_conf.pop("verify_ssl_certs", None)
 
     # Create custom HTTP client if SSL verification is disabled (for non-GigaChat models)
     if not verify_ssl:

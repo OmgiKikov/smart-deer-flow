@@ -87,7 +87,7 @@ def reflection_node(state: AgentState, reflection_agent) -> Dict[str, Any]:
         "current_plan": current_plan,
         "findings": findings,
         "reflection_count": state.get("reflection_count", 0) + 1,
-        "locale": state.get("locale", "en-US"),
+        "locale": state.get("locale", ""),
     }
 
     # Execute reflection

@@ -41,7 +41,7 @@ def prompt_enhancer_node(state: PromptEnhancerState):
             {
                 "messages": [original_prompt_message],
                 "report_style": state.get("report_style"),
-                "locale": state.get("locale", "en-US"),
+                "locale": state.get("locale", "ru-RU"),
             },
         )
 
@@ -64,6 +64,12 @@ def prompt_enhancer_node(state: PromptEnhancerState):
             "Here is the enhanced prompt:",
             "**Enhanced Prompt**:",
             "**Enhanced prompt**:",
+            "Улучшенный промпт:",
+            "Улучшенный Промпт:",
+            "Вот улучшенный промпт:",
+            "Вот улучшенный Промпт:",
+            "**Улучшенный промпт**:",
+            "**Улучшенный Промпт**:",
         ]
 
         for prefix in prefixes_to_remove:

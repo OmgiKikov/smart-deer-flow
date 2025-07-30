@@ -75,7 +75,7 @@ _global_workflow_optimizer: Optional[WorkflowOptimizer] = None
 async def get_workflow_optimizer(
     optimization_level: WorkflowOptimizationLevel = WorkflowOptimizationLevel.ADVANCED,
 ) -> WorkflowOptimizer:
-    """获取全局工作流优化器实例"""
+    """Получить глобальный экземпляр оптимизатора рабочего процесса"""
     global _global_workflow_optimizer
 
     if _global_workflow_optimizer is None:
@@ -93,13 +93,13 @@ async def run_optimized_research_workflow(
     enable_parallel_tasks: bool = True,
     max_workers: int = 8,
 ) -> Dict[str, Any]:
-    """运行优化的研究工作流，专门针对并行化处理优化
+    """Запустить оптимизированный исследовательский рабочий процесс, специально оптимизированный для параллельной обработки
 
     Args:
-        user_input: 用户查询
-        workflow_type: 工作流类型 ('research', 'analysis', 'report')
-        optimization_level: 优化级别
-        enable_parallel_tasks: 是否启用并行任务处理
+        user_input: Пользовательский запрос
+        workflow_type: Тип рабочего процесса ('research', 'analysis', 'report')
+        optimization_level: Уровень оптимизации
+        enable_parallel_tasks: Включить ли параллельную обработку задач
         max_workers: 最大工作线程数
 
     Returns:
@@ -176,7 +176,7 @@ async def run_parallel_report_generation(
         content_sections: 报告内容部分列表
         report_type: 报告类型
         user_context: 用户上下文信息
-        optimization_level: 优化级别
+        optimization_level: Уровень оптимизации
 
     Returns:
         生成的报告和性能指标
@@ -238,7 +238,7 @@ async def run_agent_workflow_async(
     enable_intelligent_task_decomposition: bool = True,
     enable_dynamic_resource_allocation: bool = True,
     settings: Optional[Any] = None,
-    locale: str = "en-US",
+    locale: str = "ru-RU",
 ) -> Dict[str, Any]:
     """Run the agent workflow asynchronously with the given user input.
 
@@ -270,7 +270,7 @@ async def run_agent_workflow_async(
     start_time = time.time()
     logger.info(f"Starting async workflow with user input: {user_input}")
 
-    # 确定优化级别
+    # 确定Уровень оптимизации
     if optimization_level is None:
         if enable_advanced_optimization:
             optimization_level = WorkflowOptimizationLevel.ADVANCED

@@ -868,7 +868,7 @@ class HTMLGenerator:
         html_template = self._get_html_template()
 
         # Replace template variables
-        lang_code = "zh-CN" if self.language == Language.ZH_CN else "en-US"
+        lang_code = "ru-RU" if self.language == Language.RU_RU else "en-US"
         html = html_template.replace("{lang_code}", lang_code)
         html = html.replace("{{TITLE}}", report.title)
         html = html.replace(

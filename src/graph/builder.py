@@ -80,24 +80,14 @@ def _build_base_graph():
     builder = StateGraph(State)
     builder.add_edge(START, "coordinator")
 
-    # Use enhanced nodes if available, otherwise fallback to basic nodes
-    try:
-        if ENHANCED_FEATURES_AVAILABLE:
-            builder.add_node("coordinator", enhanced_coordinator_node)
-            builder.add_node("planner", enhanced_planner_node)
-            builder.add_node("reporter", enhanced_reporter_node)
-            logger.info("Using enhanced collaboration nodes")
-        else:
-            builder.add_node("coordinator", coordinator_node)
-            builder.add_node("planner", planner_node)
-            builder.add_node("reporter", reporter_node)
-            logger.info("Using basic nodes (enhanced features not available)")
-    except NameError:
-        # Fallback to basic nodes if enhanced nodes are not defined
-        builder.add_node("coordinator", coordinator_node)
-        builder.add_node("planner", planner_node)
-        builder.add_node("reporter", reporter_node)
-        logger.warning("Enhanced nodes not defined, using basic nodes")
+    # Always use basic nodes for now (enhanced nodes will be added later if needed)
+    builder.add_node("coordinator", coordinator_node)
+    builder.add_node("planner", planner_node) 
+    builder.add_node("reporter", reporter_node)
+    if ENHANCED_FEATURES_AVAILABLE:
+        logger.info("Enhanced features available but using basic nodes for stability")
+    else:
+        logger.info("Using basic nodes (enhanced features not available)")
 
     builder.add_node("background_investigator", background_investigation_node)
     builder.add_node("research_team", research_team_node)
@@ -298,7 +288,7 @@ class EnhancedState:
         self.current_plan: Optional[Dict[str, Any]] = None
         self.observations: List[str] = []
         self.final_report: str = ""
-        self.locale: str = "zh-CN"
+        self.locale: str = "ru-RU"
 
         # Collaboration mechanism state
         self.active_agents: Dict[str, str] = {}  # task_id -> agent_id
@@ -448,7 +438,7 @@ def enhanced_reporter_node(
         enhanced_content = critical_analysis.enhanced_content
 
         # Get language settings
-        locale = state.get("locale", "zh-CN")
+        locale = state.get("locale", "ru-RU")
         language = _get_language_from_locale(locale)
 
         # Configure output directory
@@ -597,9 +587,12 @@ def _get_language_from_locale(locale: str):
         "en-US": Language.EN_US,
         "en-us": Language.EN_US,
         "en": Language.EN_US,
+        "ru-RU": Language.RU_RU,
+        "ru-ru": Language.RU_RU,
+        "ru": Language.RU_RU,
     }
 
-    return locale_map.get(locale, Language.ZH_CN)  # Default to Chinese
+    return locale_map.get(locale, Language.RU_RU)  # Default to Russian
 
 
 def _analyze_and_create_tasks(user_message: str) -> List:

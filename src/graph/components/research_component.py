@@ -261,7 +261,7 @@ def create_research_component(
         # Get configurable from state, or create one with locale
         configurable = state.get("agent_configurable")
         if not configurable:
-            locale = state.get("locale", "en-US")
+            locale = state.get("locale", "")
             configurable = {"locale": locale}
 
         research_agent = create_research_agent(tools, prompt_name, configurable)
