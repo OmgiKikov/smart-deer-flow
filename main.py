@@ -11,7 +11,7 @@ import logging
 from InquirerPy import inquirer
 
 from src.config import load_configuration
-from src.constants.questions import BUILT_IN_QUESTIONS, BUILT_IN_QUESTIONS_ZH_CN
+from src.constants.questions import BUILT_IN_QUESTIONS
 from src.workflow import run_agent_workflow_async
 
 # Configure logging
@@ -44,7 +44,7 @@ def ask(
     enable_background_investigation=True,
     enable_collaboration=True,
     config_path="conf.yaml",
-    locale="en-US",
+    locale="ru-RU",
 ):
     """Run the agent workflow with the given question using new configuration.
 
@@ -108,38 +108,22 @@ def main(
         logging.getLogger().setLevel(logging.DEBUG)
         logger.debug(f"Configuration: {settings.dict()}")
 
-    # First select language
-    language = inquirer.select(
-        message="Select language / 选择语言:",
-        choices=["English", "中文"],
-    ).execute()
+    # Устанавливаем русскую локаль по умолчанию
+    locale = "ru-RU"
 
-    # Convert language selection to locale
-    locale = "en-US" if language == "English" else "zh-CN"
+    # Используем русские вопросы
+    questions = BUILT_IN_QUESTIONS
+    ask_own_option = "[Задать свой вопрос]"
 
-    # Choose questions based on language
-    questions = (
-        BUILT_IN_QUESTIONS if language == "English" else BUILT_IN_QUESTIONS_ZH_CN
-    )
-    ask_own_option = (
-        "[Ask my own question]" if language == "English" else "[自定义问题]"
-    )
-
-    # Select a question
+    # Выбор вопроса
     initial_question = inquirer.select(
-        message=(
-            "What do you want to know?" if language == "English" else "您想了解什么?"
-        ),
+        message="Что вы хотите узнать?",
         choices=[ask_own_option] + questions,
     ).execute()
 
     if initial_question == ask_own_option:
         initial_question = inquirer.text(
-            message=(
-                "What do you want to know?"
-                if language == "English"
-                else "您想了解什么?"
-            ),
+            message="Что вы хотите узнать?",
         ).execute()
 
     # Run with configuration

@@ -42,7 +42,7 @@ class ResultMetrics:
 
 
 class FollowUpResultMerger:
-    """Follow-up查询结果智能合并器"""
+    """Интеллектуальный объединитель результатов для follow-up запросов"""
 
     def __init__(
         self,
@@ -53,33 +53,33 @@ class FollowUpResultMerger:
         enable_semantic_grouping: Optional[bool] = None,
     ):
         """
-        初始化合并器
+        Инициализация объединителя
 
         Args:
-            config: 合并器配置对象（优先级最高）
-            similarity_threshold: 内容相似度阈值（向后兼容）
-            min_content_length: 最小内容长度（向后兼容）
-            max_merged_results: 最大合并结果数（向后兼容）
-            enable_semantic_grouping: 是否启用语义分组（向后兼容）
+            config: Объект конфигурации объединителя (наивысший приоритет)
+            similarity_threshold: Порог схожести контента (для обратной совместимости)
+            min_content_length: Минимальная длина контента (для обратной совместимости)
+            max_merged_results: Максимальное количество объединенных результатов (для обратной совместимости)
+            enable_semantic_grouping: Включить семантическую группировку (для обратной совместимости)
         """
-        # 导入配置（延迟导入避免循环依赖）
+        # Импорт конфигурации (отложенный импорт для избежания циклических зависимостей)
         if config is None:
             try:
-                # 优先使用新的统一配置系统
+                # Приоритетное использование новой единой системы конфигурации
                 from src.config.config_loader import get_settings
                 app_settings = get_settings()
                 config = app_settings.get_followup_merger_config()
             except ImportError:
                 try:
-                    # 回退到旧的配置系统
+                    # Откат к старой системе конфигурации
                     from src.config.follow_up_merger_config import get_active_merger_config
                     config = get_active_merger_config()
                 except ImportError:
-                    # 如果配置模块不可用，使用默认值
+                    # Если модуль конфигурации недоступен, используются значения по умолчанию
                     from src.config.follow_up_merger_config import FollowUpMergerConfig
                     config = FollowUpMergerConfig()
 
-        # 应用参数覆盖（向后兼容）
+        # Применение переопределения параметров (для обратной совместимости)
         self.config = config
         if similarity_threshold is not None:
             self.config.similarity_threshold = similarity_threshold
@@ -90,13 +90,13 @@ class FollowUpResultMerger:
         if enable_semantic_grouping is not None:
             self.config.enable_semantic_grouping = enable_semantic_grouping
 
-        # 配置已在 Pydantic 模型中自动验证
+        # Конфигурация автоматически проверяется в модели Pydantic
 
-        # 内容指纹缓存
+        # Кэш отпечатков контента
         self._content_fingerprints: Set[str] = set()
         self._similarity_cache: Dict[Tuple[str, str], float] = {}
 
-        # 性能统计
+        # Статистика производительности
         self._stats = {
             "total_merges": 0,
             "cache_hits": 0,
@@ -112,24 +112,22 @@ class FollowUpResultMerger:
         query_context: Optional[str] = None,
     ) -> List[MergedResult]:
         """
-        合并Follow-up查询结果
+        Объединение результатов follow-up запросов
 
         Args:
-            follow_up_results: Follow-up查询的原始结果
-            original_findings: 原始研究发现
-            query_context: 查询上下文
+            follow_up_results: Исходные результаты follow-up запросов
+            original_findings: Исходные результаты исследования
+            query_context: Контекст запроса
 
         Returns:
-            合并后的结果列表
+            Список объединенных результатов
         """
-        logger.info(
-            f"Начинаю слияние {len(follow_up_results)} новых и {len(original_findings)} существующих результатов"
-        )
+        logger.info(f"Начинаем слияние {len(follow_up_results)} новых и {len(original_findings)} существующих результатов")
 
         # Обновление статистики
         self._stats["total_merges"] += 1
 
-        # 1. Нормализация всех входных данных
+        # 1. Стандартизация всех входных данных
         normalized_follow_ups = self._normalize_results(follow_up_results)
         normalized_originals = self._normalize_results(
             [{"content": f, "source": "original"} for f in original_findings]
@@ -137,10 +135,10 @@ class FollowUpResultMerger:
         
         all_normalized_results = normalized_originals + normalized_follow_ups
 
-        # 2. Однократная дедупликация всех результатов
+        # 2. Единовременная дедупликация всех результатов
         deduplicated_results = self._deduplicate_content(all_normalized_results)
         logger.info(
-            f"После слияния и дедупликации {len(deduplicated_results)}/{len(all_normalized_results)} уникальных результатов"
+            f"После слияния и дедупликации, всего {len(deduplicated_results)}/{len(all_normalized_results)} уникальных результатов"
         )
         
         # 3. Семантическая группировка (если включена)
@@ -149,20 +147,20 @@ class FollowUpResultMerger:
         else:
             grouped_results = [[result] for result in deduplicated_results]
 
-        # 5. 组内合并
+        # 5. Слияние внутри группы
         merged_groups = []
         for group in grouped_results:
             merged_result = self._merge_group(group, query_context)
             if merged_result:
                 merged_groups.append(merged_result)
 
-        # 6. 质量评估和排序
+        # 6. Оценка качества и сортировка
         scored_results = self._score_and_rank_results(merged_groups)
 
-        # 7. 最终过滤和限制数量
+        # 7. Финальная фильтрация и ограничение количества
         final_results = self._apply_final_filters(scored_results)
 
-        # 提取合并后的内容和观察结果
+        # Извлечение объединенного контента и наблюдений
         merged_findings = [res.content for res in final_results]
         merged_observations = [
             {"content": res.content, "source": res.sources} for res in final_results
@@ -170,21 +168,21 @@ class FollowUpResultMerger:
         merge_stats = self.get_merge_statistics(final_results)
 
         logger.info(
-            f"合并完成，从 {len(follow_up_results)} 个结果合并为 {len(final_results)} 个"
+            f"Слияние завершено, из {len(follow_up_results)} результатов объединено в {len(final_results)}"
         )
         return merged_findings, merged_observations, merge_stats
 
     def _normalize_results(self, results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """标准化结果格式"""
+        """Стандартизация формата результатов"""
         normalized = []
 
         for i, result in enumerate(results):
-            # 提取内容
+            # Извлечение контента
             content = ""
             if isinstance(result, dict):
                 content = result.get("content", "")
                 if not content:
-                    # 尝试其他字段
+                    # Попытка использовать другие поля
                     content = result.get("observation", "")
                     if not content and "update" in result:
                         update = result["update"]
@@ -204,7 +202,7 @@ class FollowUpResultMerger:
             else:
                 content = str(result)
 
-            # 清理内容
+            # Очистка контента
             content = self._clean_content(content)
 
             if len(content) >= self.config.min_content_length:
@@ -224,17 +222,17 @@ class FollowUpResultMerger:
         return normalized
 
     def _clean_content(self, content: str) -> str:
-        """清理内容文本"""
+        """Очистка текста контента"""
         if not content:
             return ""
 
-        # 移除Follow-up标记
+        # Удаление маркеров Follow-up
         content = re.sub(r"\[Follow-up \d+\.\d+\]\s*", "", content)
 
-        # 移除多余的空白字符
+        # Удаление лишних пробельных символов
         content = re.sub(r"\s+", " ", content).strip()
 
-        # 移除重复的句子开头
+        # Удаление повторяющихся начал предложений
         lines = content.split("\n")
         cleaned_lines = []
         prev_line = ""
@@ -250,7 +248,7 @@ class FollowUpResultMerger:
     def _deduplicate_content(
         self, results: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
-        """基于内容指纹去重"""
+        """Дедупликация на основе отпечатков контента"""
         deduplicated = []
         seen_fingerprints = set()
 
@@ -262,17 +260,17 @@ class FollowUpResultMerger:
                 seen_fingerprints.add(fingerprint)
                 deduplicated.append(result)
             else:
-                logger.debug(f"发现重复内容，已跳过: {content[:100]}...")
+                logger.debug(f"Обнаружен дублирующийся контент, пропущено: {content[:100]}...")
 
-        logger.info(f"去重后保留 {len(deduplicated)}/{len(results)} 个结果")
+        logger.info(f"После дедупликации сохранено {len(deduplicated)}/{len(results)} результатов")
         return deduplicated
 
     def _generate_content_fingerprint(self, content: str) -> str:
-        """生成内容指纹"""
-        # 标准化文本
+        """Генерация отпечатка контента"""
+        # Стандартизация текста
         normalized = re.sub(r"\W+", " ", content.lower()).strip()
 
-        # 提取关键词（去除停用词）
+        # Извлечение ключевых слов (с удалением стоп-слов)
         words = normalized.split()
         stop_words = {
             "the",
@@ -289,28 +287,24 @@ class FollowUpResultMerger:
             "of",
             "with",
             "by",
-            "是",
-            "的",
-            "了",
-            "在",
-            "有",
-            "和",
-            "与",
+            "is", "of", "the", "in", "and", "a", # Eng
+            "是", "的", "了", "在", "有", "和", "与", # Chi
+            "и", "в", "на", "с", "о", "не", "что", "это", # Rus
         }
         keywords = [word for word in words if len(word) > 2 and word not in stop_words]
 
-        # 取前20个关键词生成指纹
+        # Взять первые 20 ключевых слов для генерации отпечатка
         key_content = " ".join(sorted(keywords[:20]))
         return hashlib.md5(key_content.encode()).hexdigest()
 
     def _filter_against_original(
         self, results: List[Dict[str, Any]], original_findings: List[str]
     ) -> List[Dict[str, Any]]:
-        """过滤与原始发现重复的内容"""
+        """Фильтрация контента, дублирующего исходные данные"""
         if not original_findings:
             return results
 
-        # 检查是否与原始发现重复
+        # Проверка на дублирование с исходными данными
         original_fingerprints = set()
         for finding in original_findings:
             if (
@@ -320,15 +314,15 @@ class FollowUpResultMerger:
                 fingerprint = self._generate_content_fingerprint(finding)
                 original_fingerprints.add(fingerprint)
 
-        # 过滤重复内容
+        # Фильтрация дублирующегося контента
         filtered = []
         for result in results:
             content_fingerprint = self._generate_content_fingerprint(result["content"])
 
-            # 检查是否与原始发现重复
+            # Проверка на дублирование с исходными данными
             is_duplicate = content_fingerprint in original_fingerprints
 
-            
+            # Проверка схожести
             if not is_duplicate:
                 max_similarity = 0.0
                 for finding in original_findings:
@@ -337,29 +331,28 @@ class FollowUpResultMerger:
                             result["content"], finding
                         )
                         max_similarity = max(max_similarity, similarity)
-                
-                if max_similarity > self.config.similarity_threshold:
-                    is_duplicate = True
+
+                is_duplicate = max_similarity > self.config.similarity_threshold
 
             if not is_duplicate:
                 filtered.append(result)
             else:
                 self._stats["deduplication_count"] += 1
-                logger.debug(f"过滤重复内容: {result['content'][:100]}...")
+                logger.debug(f"Фильтрация дублирующегося контента: {result['content'][:100]}...")
 
-        logger.info(f"原始发现过滤后保留 {len(filtered)}/{len(results)} 个结果")
+        logger.info(f"После фильтрации по исходным данным сохранено {len(filtered)}/{len(results)} результатов")
         return filtered
 
     def _calculate_similarity(self, text1: str, text2: str) -> float:
         """
-        计算两个文本的相似度（带缓存）
+        Вычисление схожести двух текстов (с кэшированием)
         """
-        # 创建缓存键
+        # Создание ключа кэша
         cache_key = (hash(text1), hash(text2))
         if cache_key[0] > cache_key[1]:
             cache_key = (cache_key[1], cache_key[0])
 
-        # 检查缓存
+        # Проверка кэша
         if cache_key in self._similarity_cache:
             self._stats["cache_hits"] += 1
             return self._similarity_cache[cache_key]
@@ -367,7 +360,7 @@ class FollowUpResultMerger:
         self._stats["cache_misses"] += 1
 
         try:
-            # 使用简单的词汇重叠度计算
+            # Использование простого расчета пересечения слов
             words1 = set(text1.lower().split())
             words2 = set(text2.lower().split())
 
@@ -378,12 +371,12 @@ class FollowUpResultMerger:
                 union = len(words1.union(words2))
                 similarity = intersection / union if union > 0 else 0.0
 
-            # 缓存结果
+            # Кэширование результата
             self._similarity_cache[cache_key] = similarity
 
-            # 限制缓存大小
+            # Ограничение размера кэша
             if len(self._similarity_cache) > 1000:
-                # 清理最旧的一半缓存
+                # Очистка старой половины кэша
                 keys_to_remove = list(self._similarity_cache.keys())[:500]
                 for key in keys_to_remove:
                     del self._similarity_cache[key]
@@ -391,13 +384,13 @@ class FollowUpResultMerger:
             return similarity
 
         except Exception as e:
-            logger.warning(f"相似度计算失败: {e}")
+            logger.warning(f"Ошибка вычисления схожести: {e}")
             return 0.0
 
     def _group_by_semantic_similarity(
         self, results: List[Dict[str, Any]]
     ) -> List[List[Dict[str, Any]]]:
-        """基于语义相似性分组"""
+        """Группировка по семантической схожести"""
         if not results:
             return []
 
@@ -405,11 +398,11 @@ class FollowUpResultMerger:
         ungrouped = results.copy()
 
         while ungrouped:
-            # 取第一个作为组的种子
+            # Взять первый элемент как основу для группы
             seed = ungrouped.pop(0)
             current_group = [seed]
 
-            # 找到相似的结果
+            # Поиск схожих результатов
             remaining = []
             for result in ungrouped:
                 similarity = self._calculate_similarity(
@@ -424,18 +417,18 @@ class FollowUpResultMerger:
             ungrouped = remaining
             groups.append(current_group)
 
-        logger.info(f"语义分组完成: {len(results)} 个结果分为 {len(groups)} 组")
+        logger.info(f"Семантическая группировка завершена: {len(results)} результатов разделено на {len(groups)} групп")
         return groups
 
     def _merge_group(
         self, group: List[Dict[str, Any]], query_context: Optional[str] = None
     ) -> Optional[MergedResult]:
-        """合并同组内的结果"""
+        """Слияние результатов внутри одной группы"""
         if not group:
             return None
 
         if len(group) == 1:
-            # 单个结果直接转换
+            # Прямое преобразование одиночного результата
             result = group[0]
             return MergedResult(
                 content=result["content"],
@@ -448,17 +441,17 @@ class FollowUpResultMerger:
                 merged_count=1,
             )
 
-        # 多个结果需要合并
+        # Необходимо слить несколько результатов
         merged_content = self._merge_content([r["content"] for r in group])
         sources = [r["source"] for r in group]
 
-        # 合并元数据
+        # Слияние метаданных
         merged_metadata = {}
         for result in group:
             merged_metadata.update(result["metadata"])
 
-        # 计算置信度和相关性分数
-        confidence_score = min(0.9, 0.6 + len(group) * 0.1)  # 更多来源 = 更高置信度
+        # Расчет коэффициентов уверенности и релевантности
+        confidence_score = min(0.9, 0.6 + len(group) * 0.1)  # больше источников = выше уверенность
         relevance_score = self._calculate_relevance_score(merged_content, query_context)
 
         return MergedResult(
@@ -473,23 +466,23 @@ class FollowUpResultMerger:
         )
 
     def _merge_content(self, contents: List[str]) -> str:
-        """智能合并多个内容"""
+        """Интеллектуальное слияние нескольких фрагментов контента"""
         if not contents:
             return ""
 
         if len(contents) == 1:
             return contents[0]
 
-        # 按长度排序，优先保留更详细的内容
+        # Сортировка по длине, приоритет у более детального контента
         sorted_contents = sorted(contents, key=len, reverse=True)
 
-        # 提取所有句子
+        # Извлечение всех предложений
         all_sentences = []
         for content in sorted_contents:
             sentences = [s.strip() for s in content.split(".") if s.strip()]
             all_sentences.extend(sentences)
 
-        # 去重句子（保持顺序）
+        # Дедупликация предложений (с сохранением порядка)
         unique_sentences = []
         seen_sentences = set()
 
@@ -499,7 +492,7 @@ class FollowUpResultMerger:
                 seen_sentences.add(sentence_key)
                 unique_sentences.append(sentence)
 
-        # 重新组织内容
+        # Реорганизация контента
         merged = ". ".join(unique_sentences)
         if merged and not merged.endswith("."):
             merged += "."
@@ -507,15 +500,15 @@ class FollowUpResultMerger:
         return merged
 
     def _extract_key_points(self, content: str) -> List[str]:
-        """提取关键点"""
+        """Извлечение ключевых моментов"""
         if not content:
             return []
 
         sentences = [s.strip() for s in content.split(".") if s.strip()]
 
-        # 简单的关键点提取：选择较长且信息丰富的句子
+        # Простое извлечение ключевых моментов: выбор более длинных и информативных предложений
         key_points = []
-        for sentence in sentences[:5]:  # 最多5个关键点
+        for sentence in sentences[:5]:  # не более 5 ключевых моментов
             if (
                 len(sentence) > 20
                 and len(sentence) < 200
@@ -523,42 +516,42 @@ class FollowUpResultMerger:
             ):
                 key_points.append(sentence)
 
-        return key_points[:3]  # 最多3个关键点
+        return key_points[:3]  # не более 3 ключевых моментов
 
     def _calculate_relevance_score(
         self, content: str, query_context: Optional[str] = None
     ) -> float:
-        """计算相关性分数"""
+        """Расчет коэффициента релевантности"""
         if not query_context:
-            return 0.7  # 默认分数
+            return 0.7  # оценка по умолчанию
 
-        # 简单的关键词匹配
+        # Простое сопоставление по ключевым словам
         content_lower = content.lower()
         context_lower = query_context.lower()
 
-        # 提取关键词
+        # Извлечение ключевых слов
         context_words = set(re.findall(r"\w+", context_lower))
         content_words = set(re.findall(r"\w+", content_lower))
 
         if not context_words:
             return 0.7
 
-        # 计算交集比例
+        # Расчет доли пересечения
         intersection = context_words.intersection(content_words)
         relevance = len(intersection) / len(context_words)
 
-        return min(1.0, relevance + 0.3)  # 基础分数 + 匹配度
+        return min(1.0, relevance + 0.3)  # базовая оценка + степень совпадения
 
     def _score_and_rank_results(
         self, results: List[MergedResult]
     ) -> List[MergedResult]:
-        """评分和排序结果"""
+        """Оценка и сортировка результатов"""
         if not results:
             return []
 
-        # 计算综合分数
+        # Расчет итоговой оценки
         for result in results:
-            # 综合分数 = 置信度 * 0.4 + 相关性 * 0.4 + 内容质量 * 0.2
+            # итоговая оценка = уверенность * 0.4 + релевантность * 0.4 + качество контента * 0.2
             content_quality = self._calculate_content_quality(result.content)
 
             composite_score = (
@@ -567,11 +560,11 @@ class FollowUpResultMerger:
                 + content_quality * 0.2
             )
 
-            # 更新元数据
+            # Обновление метаданных
             result.metadata["composite_score"] = composite_score
             result.metadata["content_quality"] = content_quality
 
-        # 按综合分数排序
+        # Сортировка по итоговой оценке
         sorted_results = sorted(
             results, key=lambda x: x.metadata.get("composite_score", 0), reverse=True
         )
@@ -579,13 +572,13 @@ class FollowUpResultMerger:
         return sorted_results
 
     def _calculate_content_quality(self, content: str) -> float:
-        """计算内容质量分数"""
+        """Расчет оценки качества контента"""
         if not content:
             return 0.0
 
         score = 0.0
 
-        # 长度分数（适中长度更好）
+        # Оценка по длине (предпочтительна средняя длина)
         length = len(content)
         if 100 <= length <= 500:
             score += 0.3
@@ -594,20 +587,22 @@ class FollowUpResultMerger:
         elif length > 50:
             score += 0.1
 
-        # 信息密度分数
-        if re.search(r"\d+", content):  # 包含数字
+        # Оценка плотности информации
+        if re.search(r"\d+", content):  # содержит цифры
             score += 0.2
 
-        if re.search(r"[A-Z]{2,}", content):  # 包含缩写
+        if re.search(r"[A-Z]{2,}", content):  # содержит аббревиатуры
             score += 0.1
 
-        # 结构化程度
+        # Степень структурированности
         sentences = content.split(".")
         if len(sentences) >= 3:
             score += 0.2
 
-        # 专业术语密度
+        # Плотность профессиональной терминологии
         words = content.split()
+        if not words:
+            return min(1.0, score)
         long_words = [w for w in words if len(w) > 6]
         if len(long_words) / len(words) > 0.2:
             score += 0.2
@@ -615,11 +610,11 @@ class FollowUpResultMerger:
         return min(1.0, score)
 
     def _apply_final_filters(self, results: List[MergedResult]) -> List[MergedResult]:
-        """应用最终过滤器"""
+        """Применение финальных фильтров"""
         if not results:
             return []
 
-        # 过滤低质量结果
+        # Фильтрация низкокачественных результатов
         filtered = [
             result
             for result in results
@@ -627,19 +622,19 @@ class FollowUpResultMerger:
             >= self.config.quality_threshold
         ]
 
-        # 统计过滤的数量
+        # Статистика отфильтрованного количества
         self._stats["quality_filtered_count"] += len(results) - len(filtered)
 
-        # 限制数量
+        # Ограничение количества
         final_results = filtered[: self.config.max_merged_results]
 
         logger.info(
-            f"最终过滤: {len(results)} -> {len(filtered)} -> {len(final_results)}"
+            f"Финальная фильтрация: {len(results)} -> {len(filtered)} -> {len(final_results)}"
         )
         return final_results
 
     def get_merge_statistics(self, results: List[MergedResult]) -> Dict[str, Any]:
-        """获取合并统计信息"""
+        """Получение статистики слияния"""
         if not results:
             return {}
 
@@ -681,7 +676,7 @@ class FollowUpResultMerger:
 
     def get_performance_stats(self) -> Dict[str, Any]:
         """
-        获取性能统计信息
+        Получение статистики производительности
         """
         return {
             "total_merges": self._stats["total_merges"],
@@ -713,7 +708,7 @@ class FollowUpResultMerger:
 
     def reset_stats(self):
         """
-        重置性能统计信息
+        Сброс статистики производительности
         """
         self._stats = {
             "total_merges": 0,

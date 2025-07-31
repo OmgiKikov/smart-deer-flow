@@ -238,7 +238,7 @@ async def run_agent_workflow_async(
     enable_intelligent_task_decomposition: bool = True,
     enable_dynamic_resource_allocation: bool = True,
     settings: Optional[Any] = None,
-    locale: str = "en-US",
+    locale: str = "ru-RU",
 ) -> Dict[str, Any]:
     """Run the agent workflow asynchronously with the given user input.
 
