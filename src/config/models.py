@@ -52,6 +52,7 @@ class LLMSettings(BaseModel):
     basic_model: Optional[LLMModelConfig] = None
     reasoning_model: Optional[LLMModelConfig] = None
     reflection_model: Optional[LLMModelConfig] = None
+    reporter_model: Optional[LLMModelConfig] = None
     temperature: float = Field(default=0.7, ge=0.0, le=2.0)
     max_tokens: Optional[int] = None
     timeout: int = Field(default=30, ge=1)
@@ -418,7 +419,7 @@ class PerformanceSettings(BaseModel):
 
 
 # Define available LLM types
-LLMType = Literal["basic", "reasoning", "vision"]
+LLMType = Literal["basic", "reasoning", "vision", "reporter_model"]
 
 
 class AgentLLMSettings(BaseModel):

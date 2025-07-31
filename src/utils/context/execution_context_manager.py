@@ -486,7 +486,7 @@ class ExecutionContextManager:
                 if keep_end > 0:
                     compressed_obs = (
                         content[:keep_start]
-                        + "\n[...内容已压缩...]\n"
+                        + "\n[...часть содержимого была сжата...]\n"
                         + content[-keep_end:]
                     )
                 else:

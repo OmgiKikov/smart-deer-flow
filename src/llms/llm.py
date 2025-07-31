@@ -89,6 +89,9 @@ def _create_llm_use_conf(llm_type: LLMType, conf: Any, disable_tools: bool = Fal
     elif llm_type == "vision":
         # Vision model configuration can be added here in the future
         pass
+    elif llm_type == "reporter_model":
+        if settings.llm.reporter_model:
+            llm_config = settings.llm.reporter_model.model_dump()
 
     if not llm_config:
         raise ValueError(f"No configuration found for LLM type: {llm_type}")
@@ -162,6 +165,9 @@ def _create_llm_use_conf(llm_type: LLMType, conf: Any, disable_tools: bool = Fal
         http_async_client = httpx.AsyncClient(verify=False)
         merged_conf["http_client"] = http_client
         merged_conf["http_async_client"] = http_async_client
+
+    # Remove GigaChat-specific parameters for non-GigaChat models
+    merged_conf.pop("scope", None)
 
     # Rename 'model' to 'model_name' for LangChain compatibility (non-GigaChat)
     if "model" in merged_conf:
